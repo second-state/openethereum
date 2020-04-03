@@ -1578,6 +1578,7 @@ dependencies = [
  "snapshot",
  "spec",
  "trace-time",
+ "transaction-pool",
  "triehash-ethereum",
 ]
 

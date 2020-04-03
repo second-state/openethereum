@@ -45,6 +45,9 @@ enum_from_primitive! {
 		GetBlockBodiesPacket = 0x05,
 		BlockBodiesPacket = 0x06,
 		NewBlockPacket = 0x07,
+		NewPooledTransactionHashesPacket = 0x08,
+		GetPooledTransactionsPacket = 0x09,
+		PooledTransactionsPacket = 0x0a,
 
 		GetNodeDataPacket = 0x0d,
 		NodeDataPacket = 0x0e,
@@ -87,6 +90,9 @@ impl PacketInfo for SyncPacket {
 			GetBlockBodiesPacket |
 			BlockBodiesPacket |
 			NewBlockPacket |
+			NewPooledTransactionHashesPacket |
+			GetPooledTransactionsPacket |
+			PooledTransactionsPacket |
 
 			GetNodeDataPacket|
 			NodeDataPacket |
