@@ -71,12 +71,6 @@ pub struct EthashParams {
 	pub bomb_defuse_transition: u64,
 	/// Number of first block where EIP-100 rules begin.
 	pub eip100b_transition: u64,
-	/// Number of first block where ECIP-1010 begins.
-	pub ecip1010_pause_transition: u64,
-	/// Number of first block where ECIP-1010 ends.
-	pub ecip1010_continue_transition: u64,
-	/// Total block number for one ECIP-1017 era.
-	pub ecip1017_era_rounds: u64,
 	/// Block reward in base units.
 	pub block_reward: BTreeMap<BlockNumber, U256>,
 	/// EXPIP-2 block height
@@ -106,9 +100,6 @@ impl From<ethjson::spec::EthashParams> for EthashParams {
 			difficulty_hardfork_bound_divisor: p.difficulty_hardfork_bound_divisor.map_or(p.difficulty_bound_divisor.into(), Into::into),
 			bomb_defuse_transition: p.bomb_defuse_transition.map_or(u64::max_value(), Into::into),
 			eip100b_transition: p.eip100b_transition.map_or(u64::max_value(), Into::into),
-			ecip1010_pause_transition: p.ecip1010_pause_transition.map_or(u64::max_value(), Into::into),
-			ecip1010_continue_transition: p.ecip1010_continue_transition.map_or(u64::max_value(), Into::into),
-			ecip1017_era_rounds: p.ecip1017_era_rounds.map_or(u64::max_value(), Into::into),
 			block_reward: p.block_reward.map_or_else(
 				|| {
 					let mut ret = BTreeMap::new();
@@ -281,10 +272,6 @@ impl Engine for Ethash {
 					.expect("Current block's reward is not found; this indicates a chain config error; qed");
 				let reward = *reward;
 
-				// Applies ECIP-1017 eras.
-				let eras_rounds = self.ethash_params.ecip1017_era_rounds;
-				let (eras, reward) = ecip1017_eras_block_reward(eras_rounds, reward, number);
-
 				//let n_uncles = LiveBlock::uncles(&*block).len();
 				let n_uncles = block.uncles.len();
 
@@ -296,11 +283,7 @@ impl Engine for Ethash {
 				// Bestow uncle rewards.
 				for u in &block.uncles {
 					let uncle_author = u.author();
-					let result_uncle_reward = if eras == 0 {
-						(reward * U256::from(8 + u.number() - number)).shr(3)
-					} else {
-						reward.shr(5)
-					};
+					let result_uncle_reward = (reward * U256::from(8 + u.number() - number)).shr(3);
 
 					rewards.push((*uncle_author, RewardKind::uncle(number, u.number()), result_uncle_reward));
 				}
@@ -458,7 +441,6 @@ impl Ethash {
 		};
 		target = cmp::max(min_difficulty, target);
 		if header.number() < self.ethash_params.bomb_defuse_transition {
-			if header.number() < self.ethash_params.ecip1010_pause_transition {
 				let mut number = header.number();
 				let original_number = number;
 				for (block, delay) in &self.ethash_params.difficulty_bomb_delays {
@@ -470,41 +452,9 @@ impl Ethash {
 				if period > 1 {
 					target = cmp::max(min_difficulty, target + (U256::from(1) << (period - 2)));
 				}
-			} else if header.number() < self.ethash_params.ecip1010_continue_transition {
-				let fixed_difficulty = ((self.ethash_params.ecip1010_pause_transition / EXP_DIFF_PERIOD) - 2) as usize;
-				target = cmp::max(min_difficulty, target + (U256::from(1) << fixed_difficulty));
-			} else {
-				let period = ((parent.number() + 1) / EXP_DIFF_PERIOD) as usize;
-				let delay = ((self.ethash_params.ecip1010_continue_transition - self.ethash_params.ecip1010_pause_transition) / EXP_DIFF_PERIOD) as usize;
-				target = cmp::max(min_difficulty, target + (U256::from(1) << (period - delay - 2)));
-			}
 		}
 		target
 	}
-}
-
-
-/// Calculates the number of eras and reward
-///
-/// # Panics
-///
-/// This function will panic if `era_rounds` is less than `2`
-fn ecip1017_eras_block_reward(era_rounds: u64, mut reward: U256, block_number: u64) -> (u64, U256) {
-	// NOTE(niklasad1): all numbers is divisible by 1, it will cause the if below
-	// to succeed except for the first block. Thus, `era_rounds - 1 == 0` and cause `divide by zero`
-	assert!(era_rounds > 1, "ecip1017EraRounds must be bigger than 1");
-	let eras = if block_number != 0 && block_number % era_rounds == 0 {
-		block_number / era_rounds - 1
-	} else {
-		block_number / era_rounds
-	};
-	let mut divi = U256::from(1);
-	for _ in 0..eras {
-		reward = reward * U256::from(4);
-		divi = divi * U256::from(5);
-	}
-	reward = reward / divi;
-	(eras, reward)
 }
 
 #[cfg(test)]
@@ -527,7 +477,7 @@ mod tests {
 	use spec::{new_ropsten, new_mcip3_test, new_homestead_test_machine, Spec};
 	use tempfile::TempDir;
 
-	use super::{Ethash, EthashParams, ecip1017_eras_block_reward};
+	use super::{Ethash, EthashParams};
 
 	fn test_spec() -> Spec {
 		let tempdir = TempDir::new().unwrap();
@@ -551,9 +501,6 @@ mod tests {
 			difficulty_hardfork_bound_divisor: U256::from(0),
 			bomb_defuse_transition: u64::max_value(),
 			eip100b_transition: u64::max_value(),
-			ecip1010_pause_transition: u64::max_value(),
-			ecip1010_continue_transition: u64::max_value(),
-			ecip1017_era_rounds: u64::max_value(),
 			expip2_transition: u64::max_value(),
 			expip2_duration_limit: 30,
 			block_reward_contract: None,
@@ -573,43 +520,6 @@ mod tests {
 		let b = OpenBlock::new(engine, Default::default(), false, db, &genesis_header, last_hashes, Address::zero(), (3141562.into(), 31415620.into()), vec![], false).unwrap();
 		let b = b.close().unwrap();
 		assert_eq!(b.state.balance(&Address::zero()).unwrap(), U256::from_str("4563918244f40001").unwrap());
-	}
-
-	#[test]
-	fn has_valid_ecip1017_eras_block_reward() {
-		let eras_rounds = 5000000;
-
-		let start_reward: U256 = "4563918244F40000".parse().unwrap();
-
-		let block_number = 0;
-		let (eras, reward) = ecip1017_eras_block_reward(eras_rounds, start_reward, block_number);
-		assert_eq!(0, eras);
-		assert_eq!(U256::from_str("4563918244F40000").unwrap(), reward);
-
-		let block_number = 5000000;
-		let (eras, reward) = ecip1017_eras_block_reward(eras_rounds, start_reward, block_number);
-		assert_eq!(0, eras);
-		assert_eq!(U256::from_str("4563918244F40000").unwrap(), reward);
-
-		let block_number = 10000000;
-		let (eras, reward) = ecip1017_eras_block_reward(eras_rounds, start_reward, block_number);
-		assert_eq!(1, eras);
-		assert_eq!(U256::from_str("3782DACE9D900000").unwrap(), reward);
-
-		let block_number = 20000000;
-		let (eras, reward) = ecip1017_eras_block_reward(eras_rounds, start_reward, block_number);
-		assert_eq!(3, eras);
-		assert_eq!(U256::from_str("2386F26FC1000000").unwrap(), reward);
-
-		let block_number = 80000000;
-		let (eras, reward) = ecip1017_eras_block_reward(eras_rounds, start_reward, block_number);
-		assert_eq!(15, eras);
-		assert_eq!(U256::from_str("271000000000000").unwrap(), reward);
-
-		let block_number = 250000000;
-		let (eras, reward) = ecip1017_eras_block_reward(eras_rounds, start_reward, block_number);
-		assert_eq!(49, eras);
-		assert_eq!(U256::from_str("51212FFBAF0A").unwrap(), reward);
 	}
 
 	#[test]
@@ -831,91 +741,6 @@ mod tests {
 
 		let difficulty = ethash.calculate_difficulty(&header, &parent_header);
 		assert_eq!(U256::from_str("1fc50f118efe").unwrap(), difficulty);
-	}
-
-	#[test]
-	fn difficulty_classic_bomb_delay() {
-		let machine = new_homestead_test_machine();
-		let ethparams = EthashParams {
-			ecip1010_pause_transition: 3000000,
-			..get_default_ethash_params()
-		};
-		let tempdir = TempDir::new().unwrap();
-		let ethash = Ethash::new(tempdir.path(), ethparams, machine, None);
-
-		let mut parent_header = Header::default();
-		parent_header.set_number(3500000);
-		parent_header.set_difficulty(U256::from_str("6F62EAF8D3C").unwrap());
-		parent_header.set_timestamp(1452838500);
-		let mut header = Header::default();
-		header.set_number(parent_header.number() + 1);
-
-		header.set_timestamp(parent_header.timestamp() + 20);
-		assert_eq!(
-			U256::from_str("6F55FE9B74B").unwrap(),
-			ethash.calculate_difficulty(&header, &parent_header)
-		);
-		header.set_timestamp(parent_header.timestamp() + 5);
-		assert_eq!(
-			U256::from_str("6F71D75632D").unwrap(),
-			ethash.calculate_difficulty(&header, &parent_header)
-		);
-		header.set_timestamp(parent_header.timestamp() + 80);
-		assert_eq!(
-			U256::from_str("6F02746B3A5").unwrap(),
-			ethash.calculate_difficulty(&header, &parent_header)
-		);
-	}
-
-	#[test]
-	fn test_difficulty_bomb_continue() {
-		let machine = new_homestead_test_machine();
-		let ethparams = EthashParams {
-			ecip1010_pause_transition: 3000000,
-			ecip1010_continue_transition: 5000000,
-			..get_default_ethash_params()
-		};
-		let tempdir = TempDir::new().unwrap();
-		let ethash = Ethash::new(tempdir.path(), ethparams, machine, None);
-
-		let mut parent_header = Header::default();
-		parent_header.set_number(5000102);
-		parent_header.set_difficulty(U256::from_str("14944397EE8B").unwrap());
-		parent_header.set_timestamp(1513175023);
-		let mut header = Header::default();
-		header.set_number(parent_header.number() + 1);
-		header.set_timestamp(parent_header.timestamp() + 6);
-		assert_eq!(
-			U256::from_str("1496E6206188").unwrap(),
-			ethash.calculate_difficulty(&header, &parent_header)
-		);
-		parent_header.set_number(5100123);
-		parent_header.set_difficulty(U256::from_str("14D24B39C7CF").unwrap());
-		parent_header.set_timestamp(1514609324);
-		header.set_number(parent_header.number() + 1);
-		header.set_timestamp(parent_header.timestamp() + 41);
-		assert_eq!(
-			U256::from_str("14CA9C5D9227").unwrap(),
-			ethash.calculate_difficulty(&header, &parent_header)
-		);
-		parent_header.set_number(6150001);
-		parent_header.set_difficulty(U256::from_str("305367B57227").unwrap());
-		parent_header.set_timestamp(1529664575);
-		header.set_number(parent_header.number() + 1);
-		header.set_timestamp(parent_header.timestamp() + 105);
-		assert_eq!(
-			U256::from_str("309D09E0C609").unwrap(),
-			ethash.calculate_difficulty(&header, &parent_header)
-		);
-		parent_header.set_number(8000000);
-		parent_header.set_difficulty(U256::from_str("1180B36D4CE5B6A").unwrap());
-		parent_header.set_timestamp(1535431724);
-		header.set_number(parent_header.number() + 1);
-		header.set_timestamp(parent_header.timestamp() + 420);
-		assert_eq!(
-			U256::from_str("5126FFD5BCBB9E7").unwrap(),
-			ethash.calculate_difficulty(&header, &parent_header)
-		);
 	}
 
 	#[test]
