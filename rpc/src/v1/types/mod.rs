@@ -41,6 +41,7 @@ mod trace;
 mod trace_filter;
 mod transaction;
 mod transaction_condition;
+mod transaction_outcome;
 mod transaction_request;
 mod work;
 
@@ -59,7 +60,7 @@ pub use self::{
     },
     derivation::{Derive, DeriveHash, DeriveHierarchical},
     eip191::{EIP191Version, PresignedTransaction},
-    filter::{Filter, FilterChanges},
+    filter::{Filter, FilterChanges, TxFilter},
     histogram::Histogram,
     index::Index,
     log::Log,
@@ -76,6 +77,7 @@ pub use self::{
     trace_filter::TraceFilter,
     transaction::{LocalTransactionStatus, RichRawTransaction, Transaction},
     transaction_condition::TransactionCondition,
+    transaction_outcome::TransactionOutcome;
     transaction_request::TransactionRequest,
     work::Work,
 };

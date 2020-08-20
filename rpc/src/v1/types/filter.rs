@@ -14,14 +14,14 @@
 // You should have received a copy of the GNU General Public License
 // along with OpenEthereum.  If not, see <http://www.gnu.org/licenses/>.
 
-use ethereum_types::{H160, H256};
+use ethereum_types::{H160, H256, Address};
 use jsonrpc_core::Error as RpcError;
 use serde::{
     de::{DeserializeOwned, Error},
     Deserialize, Deserializer, Serialize, Serializer,
 };
 use serde_json::{from_value, Value};
-use types::{filter::Filter as EthFilter, ids::BlockId};
+use types::{filter::Filter as EthFilter, filter::TxFilter as EthTxFilter, ids::BlockId};
 
 use v1::{
     helpers::errors::invalid_params,
@@ -155,6 +155,34 @@ pub enum FilterChanges {
     Hashes(Vec<H256>),
     /// Empty result,
     Empty,
+}
+
+/// TxFilter is a filter for transactions
+#[derive(Debug, PartialEq, Clone, Deserialize, Eq, Hash)]
+#[serde(deny_unknown_fields)]
+pub struct TxFilter {
+	/// Transaction hash.
+	#[serde(rename = "transactionHash")]
+	pub transaction_hash: Option<H256>,
+
+	/// From address
+	#[serde(rename = "fromAddress")]
+	pub from_address: Option<Address>,
+}
+
+impl Into<EthTxFilter> for TxFilter {
+	fn into(self) -> EthTxFilter {
+		EthTxFilter {
+			transaction_hash: match self.transaction_hash {
+				Some(hash) => Some(hash.into()),
+				None => None,
+			},
+			from_address: match self.from_address {
+				Some(from_address) => Some(from_address),
+				None => None,
+			},
+		}
+	}
 }
 
 impl Serialize for FilterChanges {
