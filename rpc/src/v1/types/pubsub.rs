@@ -20,7 +20,7 @@ use ethereum_types::H256;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde::de::Error;
 use serde_json::{Value, from_value};
-use v1::types::{RichHeader, Filter, Log};
+use v1::types::{RichHeader, Filter, TransactionOutcome, TxFilter, Log};
 
 /// Subscription result.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -31,6 +31,8 @@ pub enum Result {
 	Log(Box<Log>),
 	/// Transaction hash
 	TransactionHash(H256),
+	/// Transaction outcome
+	TransactionOutcome(TransactionOutcome),
 	/// SyncStatus
 	SyncState(PubSubSyncStatus)
 }
@@ -51,6 +53,7 @@ impl Serialize for Result {
 			Result::Header(ref header) => header.serialize(serializer),
 			Result::Log(ref log) => log.serialize(serializer),
 			Result::TransactionHash(ref hash) => hash.serialize(serializer),
+			Result::TransactionOutcome(ref outcome) => outcome.serialize(serializer),
 			Result::SyncState(ref sync) => sync.serialize(serializer),
 		}
 	}
@@ -62,13 +65,20 @@ impl Serialize for Result {
 #[serde(rename_all = "camelCase")]
 pub enum Kind {
 	/// New block headers subscription.
+	#[serde(rename = "newHeads")]
 	NewHeads,
 	/// Logs subscription.
+	#[serde(rename = "logs")]
 	Logs,
 	/// New Pending Transactions subscription.
+	#[serde(rename = "newPendingTransactions")]
 	NewPendingTransactions,
 	/// Node syncing status subscription.
+	#[serde(rename = "syncing")]
 	Syncing,
+	/// Completed Transactions subscription.
+	#[serde(rename = "completedTransaction")]
+	CompletedTransaction,
 }
 
 /// Subscription kind.
@@ -78,6 +88,8 @@ pub enum Params {
 	None,
 	/// Log parameters.
 	Logs(Filter),
+	/// Transaction filter parameters.
+	Transaction(TxFilter),
 }
 
 impl Default for Params {
@@ -95,8 +107,18 @@ impl<'a> Deserialize<'a> for Params {
 			return Ok(Params::None);
 		}
 
-		from_value(v.clone()).map(Params::Logs)
-			.map_err(|e| D::Error::custom(format!("Invalid Pub-Sub parameters: {}", e)))
+		let result_logs = from_value(v.clone())
+		  .map(Params::Logs)
+			.map_err(|e| D::Error::custom(format!("Invalid Pub-Sub parameters: {}", e)));
+		let result_tx = from_value(v.clone())
+			.map(Params::Transaction)
+			.map_err(|e| D::Error::custom(format!("Invalid Pub-Sub parameters: {}", e)));
+
+		if result_tx.is_ok() {
+			result_tx
+		} else {
+			result_logs
+		}
 	}
 }
 
@@ -113,6 +135,7 @@ mod tests {
 		assert_eq!(serde_json::from_str::<Kind>(r#""logs""#).unwrap(), Kind::Logs);
 		assert_eq!(serde_json::from_str::<Kind>(r#""newPendingTransactions""#).unwrap(), Kind::NewPendingTransactions);
 		assert_eq!(serde_json::from_str::<Kind>(r#""syncing""#).unwrap(), Kind::Syncing);
+		assert_eq!(serde_json::from_str::<Kind>(r#""completedTransaction""#).unwrap(), Kind::CompletedTransaction);
 	}
 
 	#[test]

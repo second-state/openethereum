@@ -43,6 +43,7 @@ mod trace;
 mod trace_filter;
 mod transaction;
 mod transaction_request;
+mod transaction_outcome;
 mod transaction_condition;
 mod work;
 mod eip191;
@@ -61,7 +62,7 @@ pub use self::confirmations::{
 };
 pub use self::consensus_status::*;
 pub use self::derivation::{DeriveHash, DeriveHierarchical, Derive};
-pub use self::filter::{Filter, FilterChanges};
+pub use self::filter::{Filter, FilterChanges, TxFilter};
 pub use self::histogram::Histogram;
 pub use self::index::Index;
 pub use self::log::Log;
@@ -79,6 +80,7 @@ pub use self::sync::{
 pub use self::trace::{LocalizedTrace, TraceResults, TraceResultsWithTransactionHash};
 pub use self::trace_filter::TraceFilter;
 pub use self::transaction::{Transaction, RichRawTransaction, LocalTransactionStatus};
+pub use self::transaction_outcome::TransactionOutcome;
 pub use self::transaction_request::TransactionRequest;
 pub use self::transaction_condition::TransactionCondition;
 pub use self::work::Work;

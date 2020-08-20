@@ -20,6 +20,43 @@ use ethereum_types::{H256, Address, Bloom, BloomInput};
 use ids::BlockId;
 use log_entry::LogEntry;
 
+/// TxEntry represents the transaction fields that could be
+/// used for filtering on a TxFilter
+pub struct TxEntry {
+	pub transaction_hash: H256,
+	pub from_address: Address,
+}
+
+/// TxFilter is a filter for transactions.
+pub struct TxFilter {
+	/// Transaction hash.
+	///
+	/// If None, all transactions match, otherwise only
+	/// the transaction with the specific hash will match
+	pub transaction_hash: Option<H256>,
+
+	/// From address of a transaction.
+	/// If None, all transactions match. Otherwise only transactions
+	/// originated by the specified from address match
+	pub from_address: Option<Address>
+}
+
+impl TxFilter {
+	pub fn matches(&self, entry: &TxEntry) -> bool {
+		match self.transaction_hash {
+			Some(hash) => return entry.transaction_hash == hash,
+			_ => { }
+		}
+
+		match self.from_address {
+			Some(from) => return from == entry.from_address,
+			_ => { }
+		}
+
+		false
+	}
+}
+
 /// Blockchain Filter.
 #[derive(Debug, PartialEq)]
 pub struct Filter {

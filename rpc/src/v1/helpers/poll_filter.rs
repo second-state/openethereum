@@ -67,7 +67,7 @@ pub enum PollFilter {
 }
 
 impl PollFilter {
-	pub (in v1) const MAX_BLOCK_HISTORY_SIZE: usize = 32;
+	pub const MAX_BLOCK_HISTORY_SIZE: usize = 32;
 }
 
 /// Returns only last `n` logs
