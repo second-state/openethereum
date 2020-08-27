@@ -67,6 +67,7 @@ use spec::{Spec, self};
 use account_state::*;
 use state_db::StateDB;
 
+use crate::mkvs::MemoryMKVS;
 
 /// Creates test block with corresponding header
 pub fn create_test_block(header: &Header) -> Bytes {
@@ -434,15 +435,17 @@ pub fn generate_dummy_empty_blockchain() -> BlockChain {
 /// Returns temp state
 pub fn get_temp_state() -> State<::state_db::StateDB> {
 	let journal_db = get_temp_state_db();
-	State::new(journal_db, U256::from(0), Default::default())
+	let mkvs = Box::new(MemoryMKVS::new());
+	State::new(mkvs, journal_db, U256::from(0), Default::default())
 }
 
 /// Returns temp state using coresponding factory
 pub fn get_temp_state_with_factory(factory: EvmFactory) -> State<::state_db::StateDB> {
 	let journal_db = get_temp_state_db();
+	let mkvs = Box::new(MemoryMKVS::new());
 	let mut factories = Factories::default();
 	factories.vm = factory.into();
-	State::new(journal_db, U256::from(0), factories)
+	State::new(mkvs, journal_db, U256::from(0), factories)
 }
 
 /// Returns temp state db

@@ -32,6 +32,8 @@ use rlp::{self, RlpStream};
 use serde::{Serializer, Serialize};
 use rustc_hex::ToHex;
 
+use ethcore_db::mkvs::{MKVS, MKVS_KEY_CODE, MKVS_KEY_PREFIX_STORAGE};
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 /// An account, expressed as Plain-Old-Data (hence the name).
 /// Does not have a DB overlay cache, code hash or anything like that.
@@ -68,18 +70,17 @@ impl PodAccount {
 		stream.out()
 	}
 
-	/// Place additional data into given hash DB.
-	pub fn insert_additional(&self, db: &mut dyn HashDB<KeccakHasher, DBValue>, factory: &TrieFactory<Layout>) {
+	pub fn insert_additional(&self, mkvs: &mut MKVS) {
 		match self.code {
-			Some(ref c) if !c.is_empty() => { db.insert(hash_db::EMPTY_PREFIX, c); }
+			Some(ref c) if !c.is_empty() => {
+				mkvs.insert(MKVS_KEY_CODE, c);
+			}
 			_ => {}
 		}
-		let mut r = H256::zero();
-		let mut t = factory.create(db, &mut r);
 		for (k, v) in &self.storage {
-			if let Err(e) = t.insert(k.as_bytes(), &rlp::encode(&v.into_uint())) {
-				warn!("Encountered potential DB corruption: {}", e);
-			}
+			let mut key = MKVS_KEY_PREFIX_STORAGE.to_vec();
+			key.extend_from_slice(k.as_bytes());
+			mkvs.insert(&key, &rlp::encode(v));
 		}
 	}
 }

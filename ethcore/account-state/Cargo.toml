@@ -16,6 +16,7 @@ hash-db = "0.15.0"
 journaldb = { path = "../../util/journaldb" }
 keccak-hash = "0.5.0"
 keccak-hasher = { path = "../../util/keccak-hasher" }
+ethcore-db = { path = "../db" }
 kvdb = "0.5.0"
 log = "0.4"
 lru-cache = "0.1.2"

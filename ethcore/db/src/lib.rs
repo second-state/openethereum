@@ -23,6 +23,7 @@ extern crate parity_util_mem as malloc_size_of;
 
 mod db;
 
+pub mod mkvs;
 pub mod keys;
 pub mod cache_manager;
 

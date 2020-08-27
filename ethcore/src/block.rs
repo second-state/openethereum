@@ -57,6 +57,8 @@ use types::{
 use executive_state::ExecutiveState;
 use machine::ExecutedBlock;
 
+use crate::mkvs::MKVS;
+
 /// Block that is ready for transactions to be added.
 ///
 /// It's a bit like a Vec<Transaction>, except that whenever a transaction is pushed, we execute it and
@@ -105,6 +107,7 @@ impl<'x> OpenBlock<'x> {
 		engine: &'x dyn Engine,
 		factories: Factories,
 		tracing: bool,
+		mkvs: Box<MKVS>,
 		db: StateDB,
 		parent: &Header,
 		last_hashes: Arc<LastHashes>,
@@ -114,7 +117,7 @@ impl<'x> OpenBlock<'x> {
 		is_epoch_begin: bool,
 	) -> Result<Self, Error> {
 		let number = parent.number() + 1;
-		let state = State::from_existing(db, parent.state_root().clone(), engine.account_start_nonce(number), factories)?;
+		let state = State::from_existing(mkvs, db, parent.state_root().clone(), engine.account_start_nonce(number), factories)?;
 		let mut r = OpenBlock { block: ExecutedBlock::new(state, last_hashes, tracing), engine, parent: parent.clone()};
 
 		r.block.header.set_parent_hash(parent.hash());

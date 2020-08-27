@@ -24,6 +24,7 @@ executive-state = { path = "../executive-state" }
 hash-db = "0.15.0"
 instant-seal = { path = "../engines/instant-seal" }
 journaldb = { path = "../../util/journaldb" }
+ethcore-db = { path = "../db" }
 keccak-hash = "0.5.0"
 kvdb-memorydb = "0.5.0"
 log = "0.4.8"

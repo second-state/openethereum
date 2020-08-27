@@ -116,3 +116,4 @@ mod tests;
 pub mod json_tests;
 #[cfg(any(test, feature = "test-helpers"))]
 pub mod test_helpers;
+pub use db::mkvs;

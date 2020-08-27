@@ -32,6 +32,7 @@ jsonrpc-http-server = "14.0.5"
 jsonrpc-ws-server = "14.0.5"
 jsonrpc-ipc-server = "14.0.6"
 jsonrpc-pubsub = "14.0.5"
+jsonrpc-macros = "10.1.0"
 
 client-traits = { path = "../ethcore/client-traits" }
 common-types = { path = "../ethcore/types" }

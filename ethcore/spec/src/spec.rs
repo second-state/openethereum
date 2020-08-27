@@ -61,6 +61,8 @@ use crate::{
 	seal::Generic as GenericSeal,
 };
 
+use ethcore_db::mkvs::{MemoryMKVS, PrefixedMKVS, MKVS};
+
 /// Runtime parameters for the spec that are related to how the software should run the chain,
 /// rather than integral properties of the chain itself.
 pub struct SpecParams<'a> {
@@ -107,8 +109,9 @@ fn run_constructors<T: Backend>(
 	timestamp: u64,
 	difficulty: U256,
 	factories: &Factories,
+	mut mkvs: Box<MKVS>,
 	mut db: T
-) -> Result<(H256, T), Error> {
+) -> Result<(H256, T, Box<MKVS>), Error> {
 	let mut root = KECCAK_NULL_RLP;
 
 	// basic accounts in spec.
@@ -116,23 +119,19 @@ fn run_constructors<T: Backend>(
 		let mut t = factories.trie.create(db.as_hash_db_mut(), &mut root);
 
 		for (address, account) in genesis_state.get().iter() {
-			t.insert(address.as_bytes(), &account.rlp())?;
+			mkvs.insert(&address.as_bytes(), &account.rlp());
 		}
 	}
 
 	for (address, account) in genesis_state.get().iter() {
-		account.insert_additional(
-			&mut *factories.accountdb.create(
-				db.as_hash_db_mut(),
-				keccak(address),
-			),
-			&factories.trie,
-		);
+		let address_hash = &keccak(address);
+		let mut account_mkvs = PrefixedMKVS::new(&mut mkvs, address_hash.as_bytes());
+		account.insert_additional(&mut account_mkvs);
 	}
 
 	let start_nonce = engine.account_start_nonce(0);
 
-	let mut state = State::from_existing(db, root, start_nonce, factories.clone())?;
+	let mut state = State::from_existing(mkvs, db, root, start_nonce, factories.clone())?;
 	if constructors.is_empty() {
 		state.populate_from(genesis_state.clone());
 		let _ = state.commit()?;
@@ -324,7 +323,8 @@ fn load_from(spec_params: SpecParams, s: ethjson::spec::Spec) -> Result<Spec, Er
 		.collect();
 	let genesis_state: PodState = s.accounts.into();
 
-	let (state_root, _) = run_constructors(
+	// use memoized state root if provided.
+	let (state_root, _, _) = run_constructors(
 		&genesis_state,
 		&constructors,
 		&*engine,
@@ -332,6 +332,7 @@ fn load_from(spec_params: SpecParams, s: ethjson::spec::Spec) -> Result<Spec, Er
 		timestamp,
 		difficulty,
 		&Default::default(),
+		Box::new(MemoryMKVS::new()),
 		BasicBackend(journaldb::new_memory_db()),
 	)?;
 
@@ -543,7 +544,7 @@ impl Spec {
 	/// Alter the value of the genesis state.
 	pub fn set_genesis_state(&mut self, s: PodState) -> Result<(), Error> {
 		self.genesis_state = s;
-		let (root, _) = run_constructors(
+		let (root, _, _) = run_constructors(
 			&self.genesis_state,
 			&self.constructors,
 			&*self.engine,
@@ -551,6 +552,7 @@ impl Spec {
 			self.timestamp,
 			self.difficulty,
 			&Default::default(),
+			Box::new(MemoryMKVS::new()),
 			BasicBackend(journaldb::new_memory_db()),
 		)?;
 
@@ -559,14 +561,15 @@ impl Spec {
 	}
 
 	/// Ensure that the given state DB has the trie nodes in for the genesis state.
-	pub fn ensure_db_good<T: Backend>(&self, db: T, factories: &Factories) -> Result<T, Error> {
-		if db.as_hash_db().contains(&self.state_root, hash_db::EMPTY_PREFIX) {
+	pub fn ensure_db_good<T: Backend>(&self, mkvs: Box<MKVS>, db: T, factories: &Factories) -> Result<T, Error> {
+		const GENESIS_INITIALIZED: &'static [u8] = b"genesis_initialized";
+		if mkvs.get(GENESIS_INITIALIZED).is_some() {
 			return Ok(db);
 		}
 
 		// TODO: could optimize so we don't re-run, but `ensure_db_good` is barely ever
 		// called anyway.
-		let (root, db) = run_constructors(
+		let (root, db, mut mkvs) = run_constructors(
 			&self.genesis_state,
 			&self.constructors,
 			&*self.engine,
@@ -574,6 +577,7 @@ impl Spec {
 			self.timestamp,
 			self.difficulty,
 			factories,
+			mkvs,
 			db
 		)?;
 
@@ -660,7 +664,7 @@ impl Spec {
 #[cfg(test)]
 mod tests {
 	use std::str::FromStr;
-
+	use crate::mkvs::MemoryMKVS;
 	use account_state::State;
 	use common_types::{view, views::BlockView};
 	use ethereum_types::{Address, H256};
@@ -694,9 +698,11 @@ mod tests {
 	fn genesis_constructor() {
 		let _ = ::env_logger::try_init();
 		let spec = crate::new_test_constructor();
-		let db = spec.ensure_db_good(get_temp_state_db(), &Default::default())
+		let mkvs = Box::new(MemoryMKVS::new());
+		let db = spec.ensure_db_good(mkvs.clone(), get_temp_state_db(), &Default::default())
 			.unwrap();
 		let state = State::from_existing(
+			mkvs.clone(),
 			db.boxed_clone(),
 			spec.state_root,
 			spec.engine.account_start_nonce(0),
