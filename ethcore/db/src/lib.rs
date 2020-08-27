@@ -22,5 +22,6 @@ mod db;
 
 pub mod cache_manager;
 pub mod keys;
+pub mod mkvs;
 
 pub use self::db::*;

@@ -34,6 +34,8 @@ use trie::TrieFactory;
 use triehash::sec_trie_root;
 use types::account_diff::*;
 
+use ethcore_db::mkvs::{MKVS, MKVS_KEY_CODE, MKVS_KEY_PREFIX_STORAGE};
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 /// An account, expressed as Plain-Old-Data (hence the name).
 /// Does not have a DB overlay cache, code hash or anything like that.
@@ -92,23 +94,17 @@ impl PodAccount {
     }
 
     /// Place additional data into given hash DB.
-    pub fn insert_additional(
-        &self,
-        db: &mut dyn HashDB<KeccakHasher, DBValue>,
-        factory: &TrieFactory<KeccakHasher, RlpCodec>,
-    ) {
+    pub fn insert_additional(&self, mkvs: &mut MKVS) {
         match self.code {
             Some(ref c) if !c.is_empty() => {
-                db.insert(c);
+                mkvs.insert(MKVS_KEY_CODE, c);
             }
             _ => {}
         }
-        let mut r = H256::new();
-        let mut t = factory.create(db, &mut r);
         for (k, v) in &self.storage {
-            if let Err(e) = t.insert(k, &rlp::encode(&U256::from(&**v))) {
-                warn!("Encountered potential DB corruption: {}", e);
-            }
+            let mut key = MKVS_KEY_PREFIX_STORAGE.to_vec();
+            key.extend_from_slice(k.as_bytes());
+            mkvs.insert(&key, &rlp::encode(v));
         }
     }
 }

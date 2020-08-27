@@ -53,6 +53,8 @@ use kvdb::DBValue;
 use ethtrie::{Result as TrieResult, TrieDB};
 use trie::{Recorder, Trie, TrieError};
 
+use ethcore_db::mkvs::{PrefixedMKVS, ReadOnlyPrefixedMKVS, MKVS, MKVS_KEY_CODE, MKVS_KEY_PREFIX_STORAGE};
+
 mod account;
 mod substate;
 
@@ -309,6 +311,7 @@ pub fn prove_transaction_virtual<H: AsHashDB<KeccakHasher, DBValue> + Send + Syn
 /// backed-up values are moved into a parent checkpoint (if any).
 ///
 pub struct State<B> {
+    mkvs: Box<dyn MKVS>,
     db: B,
     root: H256,
     cache: RefCell<HashMap<Address, AccountEntry>>,
@@ -372,7 +375,7 @@ const SEC_TRIE_DB_UNWRAP_STR: &'static str = "A state can only be created with v
 impl<B: Backend> State<B> {
     /// Creates new state with empty state root
     /// Used for tests.
-    pub fn new(mut db: B, account_start_nonce: U256, factories: Factories) -> State<B> {
+    pub fn new(mkvs: Box<dyn MKVS>, mut db: B, account_start_nonce: U256, factories: Factories) -> State<B> {
         let mut root = H256::new();
         {
             // init trie and reset root to null
@@ -380,6 +383,7 @@ impl<B: Backend> State<B> {
         }
 
         State {
+            mkvs: mkvs,
             db: db,
             root: root,
             cache: RefCell::new(HashMap::new()),
@@ -391,6 +395,7 @@ impl<B: Backend> State<B> {
 
     /// Creates new state with existing state root
     pub fn from_existing(
+        mkvs: Box<dyn MKVS>,
         db: B,
         root: H256,
         account_start_nonce: U256,
@@ -401,6 +406,7 @@ impl<B: Backend> State<B> {
         }
 
         let state = State {
+            mkvs: mkvs,
             db: db,
             root: root,
             cache: RefCell::new(HashMap::new()),
@@ -498,9 +504,9 @@ impl<B: Backend> State<B> {
     }
 
     /// Destroy the current object and return root and database.
-    pub fn drop(mut self) -> (H256, B) {
+    pub fn drop(mut self) -> (H256, B, Box<dyn MKVS>) {
         self.propagate_to_global_cache();
-        (self.root, self.db)
+        (self.root, self.db, self.mkvs)
     }
 
     /// Destroy the current object and return single account data.
@@ -700,7 +706,7 @@ impl<B: Backend> State<B> {
     ) -> TrieResult<H256>
     where
         FCachedStorageAt: Fn(&Account, &H256) -> Option<H256>,
-        FStorageAt: Fn(&Account, &dyn HashDB<KeccakHasher, DBValue>, &H256) -> TrieResult<H256>,
+        FStorageAt: Fn(&Account, &dyn MKVS, &H256) -> TrieResult<H256>,
     {
         // Storage key search and update works like this:
         // 1. If there's an entry for the account in the local cache check for the key and return it if found.
@@ -727,11 +733,8 @@ impl<B: Backend> State<B> {
             let trie_res = self.db.get_cached(address, |acc| match acc {
                 None => Ok(H256::new()),
                 Some(a) => {
-                    let account_db = self
-                        .factories
-                        .accountdb
-                        .readonly(self.db.as_hash_db(), a.address_hash(address));
-                    f_at(a, account_db.as_hash_db(), key)
+                    let account_mkvs = ReadOnlyPrefixedMKVS::new(&self.mkvs, address.as_bytes());
+                    a.storage_at(&account_mkvs, &key)
                 }
             });
 
@@ -742,11 +745,8 @@ impl<B: Backend> State<B> {
             // otherwise cache the account localy and cache storage key there.
             if let Some(ref mut acc) = local_account {
                 if let Some(ref account) = acc.account {
-                    let account_db = self
-                        .factories
-                        .accountdb
-                        .readonly(self.db.as_hash_db(), account.address_hash(address));
-                    return f_at(account, account_db.as_hash_db(), key);
+                    let account_mkvs = ReadOnlyPrefixedMKVS::new(&self.mkvs, address.as_bytes());
+                    return account.storage_at(&account_mkvs, &key);
                 } else {
                     return Ok(H256::new());
                 }
@@ -754,20 +754,11 @@ impl<B: Backend> State<B> {
         }
 
         // account is not found in the global cache, get from the DB and insert into local
-        let db = &self.db.as_hash_db();
-        let db = self
-            .factories
-            .trie
-            .readonly(db, &self.root)
-            .expect(SEC_TRIE_DB_UNWRAP_STR);
         let from_rlp = |b: &[u8]| Account::from_rlp(b).expect("decoding db value failed");
-        let maybe_acc = db.get_with(address, from_rlp)?;
+        let maybe_acc = self.mkvs.get(&address.as_bytes()).map(|value| from_rlp(&value));
         let r = maybe_acc.as_ref().map_or(Ok(H256::new()), |a| {
-            let account_db = self
-                .factories
-                .accountdb
-                .readonly(self.db.as_hash_db(), a.address_hash(address));
-            f_at(a, account_db.as_hash_db(), key)
+            let account_mkvs = ReadOnlyPrefixedMKVS::new(&self.mkvs, address.as_bytes());
+            a.storage_at(&account_mkvs, &key)
         });
         self.insert_cache(address, AccountEntry::new_clean(maybe_acc));
         r
@@ -1003,31 +994,23 @@ impl<B: Backend> State<B> {
         let mut accounts = self.cache.borrow_mut();
         for (address, ref mut a) in accounts.iter_mut().filter(|&(_, ref a)| a.is_dirty()) {
             if let Some(ref mut account) = a.account {
-                let addr_hash = account.address_hash(address);
                 {
-                    let mut account_db = self
-                        .factories
-                        .accountdb
-                        .create(self.db.as_hash_db_mut(), addr_hash);
-                    account.commit_storage(&self.factories.trie, account_db.as_hash_db_mut())?;
-                    account.commit_code(account_db.as_hash_db_mut());
+                    let mut account_mkvs = PrefixedMKVS::new(&mut self.mkvs, address.as_bytes());
+                    account.commit_storage(&mut account_mkvs);
+                    account.commit_code(&mut account_mkvs);
                 }
             }
         }
 
         {
-            let mut trie = self
-                .factories
-                .trie
-                .from_existing(self.db.as_hash_db_mut(), &mut self.root)?;
             for (address, ref mut a) in accounts.iter_mut().filter(|&(_, ref a)| a.is_dirty()) {
                 a.state = AccountState::Committed;
                 match a.account {
                     Some(ref mut account) => {
-                        trie.insert(address, &account.rlp())?;
+                        self.mkvs.insert(address.as_bytes(), &account.rlp());
                     }
                     None => {
-                        trie.remove(address)?;
+                        self.mkvs.remove(address.as_bytes());
                     }
                 };
             }
@@ -1275,7 +1258,7 @@ impl<B: Backend> State<B> {
         require: RequireCache,
         account: &mut Account,
         state_db: &B,
-        db: &dyn HashDB<KeccakHasher, DBValue>,
+        mkvs: &(dyn MKVS),
     ) -> bool {
         if let RequireCache::None = require {
             return true;
@@ -1295,7 +1278,7 @@ impl<B: Backend> State<B> {
             None => match require {
                 RequireCache::None => true,
                 RequireCache::Code => {
-                    if let Some(code) = account.cache_code(db) {
+                    if let Some(code) = account.cache_code(mkvs) {
                         // propagate code loaded from the database to
                         // the global code cache.
                         state_db.cache_code(hash, code);
@@ -1304,7 +1287,7 @@ impl<B: Backend> State<B> {
                         false
                     }
                 }
-                RequireCache::CodeSize => account.cache_code_size(db),
+                RequireCache::CodeSize => account.cache_code_size(mkvs),
             },
         }
     }
@@ -1319,11 +1302,8 @@ impl<B: Backend> State<B> {
         // check local cache first
         if let Some(ref mut maybe_acc) = self.cache.borrow_mut().get_mut(a) {
             if let Some(ref mut account) = maybe_acc.account {
-                let accountdb = self
-                    .factories
-                    .accountdb
-                    .readonly(self.db.as_hash_db(), account.address_hash(a));
-                if Self::update_account_cache(require, account, &self.db, accountdb.as_hash_db()) {
+                let account_mkvs = ReadOnlyPrefixedMKVS::new(&self.mkvs, a.as_bytes());
+                if Self::update_account_cache(require, account, &self.db, &account_mkvs) {
                     return Ok(f(Some(account)));
                 } else {
                     return Err(Box::new(TrieError::IncompleteDatabase(H256::from(a))));
@@ -1334,11 +1314,8 @@ impl<B: Backend> State<B> {
         // check global cache
         let result = self.db.get_cached(a, |mut acc| {
             if let Some(ref mut account) = acc {
-                let accountdb = self
-                    .factories
-                    .accountdb
-                    .readonly(self.db.as_hash_db(), account.address_hash(a));
-                if !Self::update_account_cache(require, account, &self.db, accountdb.as_hash_db()) {
+                let account_mkvs = ReadOnlyPrefixedMKVS::new(&self.mkvs, a.as_bytes());
+                if !Self::update_account_cache(require, account, &self.db, &account_mkvs) {
                     return Err(Box::new(TrieError::IncompleteDatabase(H256::from(a))));
                 }
             }
@@ -1348,21 +1325,11 @@ impl<B: Backend> State<B> {
             Some(r) => Ok(r?),
             None => {
                 // not found in the global cache, get from the DB and insert into local
-                let db = &self.db.as_hash_db();
-                let db = self.factories.trie.readonly(db, &self.root)?;
                 let from_rlp = |b: &[u8]| Account::from_rlp(b).expect("decoding db value failed");
-                let mut maybe_acc = db.get_with(a, from_rlp)?;
+                let mut maybe_acc = self.mkvs.get(&a.as_bytes()).map(|value| from_rlp(&value));
                 if let Some(ref mut account) = maybe_acc.as_mut() {
-                    let accountdb = self
-                        .factories
-                        .accountdb
-                        .readonly(self.db.as_hash_db(), account.address_hash(a));
-                    if !Self::update_account_cache(
-                        require,
-                        account,
-                        &self.db,
-                        accountdb.as_hash_db(),
-                    ) {
+                    let account_mkvs = ReadOnlyPrefixedMKVS::new(&self.mkvs, a.as_bytes());
+                    if !Self::update_account_cache(require, account, &self.db, &account_mkvs) {
                         return Err(Box::new(TrieError::IncompleteDatabase(H256::from(a))));
                     }
                 }
@@ -1401,11 +1368,9 @@ impl<B: Backend> State<B> {
             match self.db.get_cached_account(a) {
                 Some(acc) => self.insert_cache(a, AccountEntry::new_clean_cached(acc)),
                 None => {
-                    let db = &self.db.as_hash_db();
-                    let db = self.factories.trie.readonly(db, &self.root)?;
                     let from_rlp =
                         |b: &[u8]| Account::from_rlp(b).expect("decoding db value failed");
-                    let maybe_acc = AccountEntry::new_clean(db.get_with(a, from_rlp)?);
+                    let maybe_account = self.mkvs.get(&a.as_bytes()).map(|value| from_rlp(&value));
                     self.insert_cache(a, maybe_acc);
                 }
             }
@@ -1433,17 +1398,8 @@ impl<B: Backend> State<B> {
 
         if require_code {
             let addr_hash = account.address_hash(a);
-            let accountdb = self
-                .factories
-                .accountdb
-                .readonly(self.db.as_hash_db(), addr_hash);
-
-            if !Self::update_account_cache(
-                RequireCache::Code,
-                &mut account,
-                &self.db,
-                accountdb.as_hash_db(),
-            ) {
+            let account_mkvs = ReadOnlyPrefixedMKVS::new(&self.mkvs, a.as_bytes());
+            if !Self::update_account_cache(RequireCache::Code, &mut account, &self.db, &account_mkvs) {
                 return Err(Box::new(TrieError::IncompleteDatabase(H256::from(a))));
             }
         }
@@ -1556,6 +1512,7 @@ impl Clone for State<StateDB> {
         };
 
         State {
+            mkvs: self.mkvs.boxed_clone(),
             db: self.db.boxed_clone(),
             root: self.root.clone(),
             cache: RefCell::new(cache),

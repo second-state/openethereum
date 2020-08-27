@@ -55,6 +55,8 @@ use types::{
     transaction::{Error as TransactionError, SignedTransaction},
 };
 
+use crate::mkvs::MKVS;
+
 /// Block that is ready for transactions to be added.
 ///
 /// It's a bit like a Vec<Transaction>, except that whenever a transaction is pushed, we execute it and
@@ -166,6 +168,7 @@ impl<'x> OpenBlock<'x> {
         engine: &'x dyn EthEngine,
         factories: Factories,
         tracing: bool,
+        mkvs: Box<MKVS>,
         db: StateDB,
         parent: &Header,
         last_hashes: Arc<LastHashes>,
@@ -177,6 +180,7 @@ impl<'x> OpenBlock<'x> {
     ) -> Result<Self, Error> {
         let number = parent.number() + 1;
         let state = State::from_existing(
+            mkvs,
             db,
             parent.state_root().clone(),
             engine.account_start_nonce(number),

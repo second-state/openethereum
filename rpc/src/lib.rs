@@ -53,6 +53,7 @@ extern crate transient_hashmap;
 
 extern crate jsonrpc_core;
 extern crate jsonrpc_derive;
+extern crate jsonrpc_macros;
 extern crate jsonrpc_http_server as http;
 extern crate jsonrpc_ipc_server as ipc;
 extern crate jsonrpc_pubsub;

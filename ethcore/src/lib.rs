@@ -147,4 +147,5 @@ mod tests;
 
 pub use evm::CreateContractAddress;
 pub use executive::contract_address;
+pub use db::mkvs;
 pub use trie::TrieSpec;

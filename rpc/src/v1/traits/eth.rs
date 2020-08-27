@@ -66,7 +66,7 @@ pub trait Eth {
 
     /// Returns highest block number.
     #[rpc(name = "eth_blockNumber")]
-    fn block_number(&self) -> Result<U256>;
+    fn block_number(&self) -> BoxFuture<U256>;
 
     /// Returns balance of the given account.
     #[rpc(name = "eth_getBalance")]
@@ -114,11 +114,11 @@ pub trait Eth {
 
     /// Sends signed transaction, returning its hash.
     #[rpc(name = "eth_sendRawTransaction")]
-    fn send_raw_transaction(&self, _: Bytes) -> Result<H256>;
+    fn send_raw_transaction(&self, _: Bytes) -> BoxFuture<H256>;
 
     /// @alias of `eth_sendRawTransaction`.
     #[rpc(name = "eth_submitTransaction")]
-    fn submit_transaction(&self, _: Bytes) -> Result<H256>;
+    fn submit_transaction(&self, _: Bytes) -> BoxFuture<H256>;
 
     /// Call contract, returning the output data.
     #[rpc(name = "eth_call")]
@@ -207,11 +207,11 @@ pub trait Eth {
 pub trait EthFilter {
     /// Returns id of new filter.
     #[rpc(name = "eth_newFilter")]
-    fn new_filter(&self, _: Filter) -> Result<U256>;
+    fn new_filter(&self, _: Filter) -> BoxFuture<U256>;
 
     /// Returns id of new block filter.
     #[rpc(name = "eth_newBlockFilter")]
-    fn new_block_filter(&self) -> Result<U256>;
+    fn new_block_filter(&self) -> BoxFuture<U256>;
 
     /// Returns id of new block filter.
     #[rpc(name = "eth_newPendingTransactionFilter")]

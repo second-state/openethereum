@@ -30,6 +30,7 @@ jsonrpc-http-server = "15.0.0"
 jsonrpc-ws-server = "15.0.0"
 jsonrpc-ipc-server = "15.0.0"
 jsonrpc-pubsub = "15.0.0"
+jsonrpc-macros = "10.1.0"
 
 common-types = { path = "../ethcore/types" }
 ethash = { path = "../ethash" }
