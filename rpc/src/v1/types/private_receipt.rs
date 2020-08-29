@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Open Ethereum.  If not, see <http://www.gnu.org/licenses/>.
 
-use ethcore_private_tx::{Receipt as EthPrivateReceipt};
+// use ethcore_private_tx::{Receipt as EthPrivateReceipt};
 use ethereum_types::{H160, H256};
 use v1::types::TransactionRequest;
 
@@ -31,15 +31,15 @@ pub struct PrivateTransactionReceipt {
 	pub status_code: u8,
 }
 
-impl From<EthPrivateReceipt> for PrivateTransactionReceipt {
-	fn from(r: EthPrivateReceipt) -> Self {
-		PrivateTransactionReceipt {
-			transaction_hash: r.hash,
-			contract_address: r.contract_address,
-			status_code: r.status_code,
-		}
-	}
-}
+// impl From<EthPrivateReceipt> for PrivateTransactionReceipt {
+// 	fn from(r: EthPrivateReceipt) -> Self {
+// 		PrivateTransactionReceipt {
+// 			transaction_hash: r.hash,
+// 			contract_address: r.contract_address,
+// 			status_code: r.status_code,
+// 		}
+// 	}
+// }
 
 /// Receipt and Transaction
 #[derive(Debug, Serialize)]

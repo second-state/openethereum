@@ -654,7 +654,7 @@ impl fmt::Debug for Account {
 			.finish()
 	}
 }
-/*
+
 #[cfg(test)]
 mod tests {
 	use std::str::FromStr;
@@ -792,4 +792,3 @@ mod tests {
 		assert_eq!(a.storage_root().unwrap(), KECCAK_NULL_RLP);
 	}
 }
-*/

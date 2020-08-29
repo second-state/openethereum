@@ -31,7 +31,6 @@ macro_rules! try_bf {
 
 #[macro_use]
 pub mod helpers;
-mod impls;
 pub mod types;
 #[cfg(test)]
 mod tests;
@@ -41,9 +40,8 @@ pub mod informant;
 pub mod metadata;
 pub mod traits;
 
-pub use self::traits::{Debug, Eth, EthFilter, EthPubSub, EthSigning, Net, Parity, ParityAccountsInfo, ParityAccounts, ParitySet, ParitySetAccounts, ParitySigning, Personal, PubSub, Private, Rpc, SecretStore, Signer, Traces, Web3};
-pub use self::impls::*;
-pub use self::helpers::{NetworkSettings, block_import, dispatch};
+pub use self::traits::{Debug, Eth, EthFilter, EthPubSub, EthSigning, Net, PubSub, Rpc, Traces, Web3};
+pub use self::helpers::{NetworkSettings};
 pub use self::metadata::Metadata;
 pub use self::types::Origin;
 pub use self::types::pubsub::PubSubSyncStatus;

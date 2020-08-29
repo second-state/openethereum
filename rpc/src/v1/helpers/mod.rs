@@ -17,16 +17,13 @@
 #[macro_use]
 pub mod errors;
 
-pub mod block_import;
 pub mod deprecated;
-pub mod dispatch;
 #[cfg(any(test, feature = "accounts"))]
 pub mod eip191;
 #[cfg(any(test, feature = "accounts"))]
 pub mod engine_signer;
 pub mod external_signer;
 pub mod fake_sign;
-pub mod light_fetch;
 pub mod nonce;
 #[cfg(any(test, feature = "accounts"))]
 pub mod secretstore;
@@ -37,11 +34,7 @@ mod poll_manager;
 mod requests;
 mod subscribers;
 mod subscription_manager;
-mod work;
-mod signature;
 
-pub use self::dispatch::{Dispatcher, FullDispatcher, LightDispatcher};
-pub use self::signature::verify_signature;
 pub use self::network_settings::NetworkSettings;
 pub use self::poll_manager::PollManager;
 pub use self::poll_filter::{PollFilter, SyncPollFilter, limit_logs};
@@ -50,7 +43,6 @@ pub use self::requests::{
 };
 pub use self::subscribers::Subscribers;
 pub use self::subscription_manager::GenericPollManager;
-pub use self::work::submit_work_detail;
 
 pub fn to_url(address: &Option<::Host>) -> Option<String> {
 	address.as_ref().map(|host| (**host).to_owned())

@@ -21,9 +21,8 @@ use std::fmt;
 use jsonrpc_core::{futures, Result as RpcResult, Error, ErrorCode, Value};
 use rlp::DecoderError;
 use types::transaction::Error as TransactionError;
-use ethcore_private_tx::Error as PrivateTransactionError;
 use vm::Error as VMError;
-use light::on_demand::error::{Error as OnDemandError};
+// use light::on_demand::error::{Error as OnDemandError};
 use client_traits::BlockChainClient;
 use types::{
 	ids::BlockId,
@@ -32,7 +31,7 @@ use types::{
 	transaction::CallError,
 };
 use v1::types::BlockNumber;
-use v1::impls::EthClientOptions;
+// use v1::impls::EthClientOptions;
 
 pub mod codes {
 	// NOTE [ToDr] Codes from [-32099, -32000]
@@ -259,46 +258,46 @@ pub fn cannot_submit_block(err: EthcoreError) -> Error {
 	}
 }
 
-pub fn check_block_number_existence<'a, T, C>(
-	client: &'a C,
-	num: BlockNumber,
-	options: EthClientOptions,
-) ->
-	impl Fn(Option<T>) -> RpcResult<Option<T>> + 'a
-	where C: BlockChainClient,
-{
-	move |response| {
-		if response.is_none() {
-			if let BlockNumber::Num(block_number) = num {
-				// tried to fetch block number and got nothing even though the block number is
-				// less than the latest block number
-				if block_number < client.chain_info().best_block_number && !options.allow_missing_blocks {
-					return Err(unavailable_block(options.no_ancient_blocks, false));
-				}
-			}
-		}
-		Ok(response)
-	}
-}
+// pub fn check_block_number_existence<'a, T, C>(
+// 	client: &'a C,
+// 	num: BlockNumber,
+// 	options: EthClientOptions,
+// ) ->
+// 	impl Fn(Option<T>) -> RpcResult<Option<T>> + 'a
+// 	where C: BlockChainClient,
+// {
+// 	move |response| {
+// 		if response.is_none() {
+// 			if let BlockNumber::Num(block_number) = num {
+// 				// tried to fetch block number and got nothing even though the block number is
+// 				// less than the latest block number
+// 				if block_number < client.chain_info().best_block_number && !options.allow_missing_blocks {
+// 					return Err(unavailable_block(options.no_ancient_blocks, false));
+// 				}
+// 			}
+// 		}
+// 		Ok(response)
+// 	}
+// }
 
-pub fn check_block_gap<'a, T, C>(
-	client: &'a C,
-	options: EthClientOptions,
-) -> impl Fn(Option<T>) -> RpcResult<Option<T>> + 'a
-	where C: BlockChainClient,
-{
-	move |response| {
-		if response.is_none() && !options.allow_missing_blocks {
-			let BlockChainInfo { ancient_block_hash, .. } = client.chain_info();
-			// block information was requested, but unfortunately we couldn't find it and there
-			// are gaps in the database ethcore/src/blockchain/blockchain.rs
-			if ancient_block_hash.is_some() {
-				return Err(unavailable_block(options.no_ancient_blocks, true))
-			}
-		}
-		Ok(response)
-	}
-}
+// pub fn check_block_gap<'a, T, C>(
+// 	client: &'a C,
+// 	options: EthClientOptions,
+// ) -> impl Fn(Option<T>) -> RpcResult<Option<T>> + 'a
+// 	where C: BlockChainClient,
+// {
+// 	move |response| {
+// 		if response.is_none() && !options.allow_missing_blocks {
+// 			let BlockChainInfo { ancient_block_hash, .. } = client.chain_info();
+// 			// block information was requested, but unfortunately we couldn't find it and there
+// 			// are gaps in the database ethcore/src/blockchain/blockchain.rs
+// 			if ancient_block_hash.is_some() {
+// 				return Err(unavailable_block(options.no_ancient_blocks, true))
+// 			}
+// 		}
+// 		Ok(response)
+// 	}
+// }
 
 pub fn not_enough_data() -> Error {
 	Error {
@@ -383,31 +382,31 @@ pub fn signing_queue_disabled() -> Error {
 	}
 }
 
-#[cfg(any(test, feature = "accounts"))]
-pub fn signing(error: ::accounts::SignError) -> Error {
-	Error {
-		code: ErrorCode::ServerError(codes::ACCOUNT_LOCKED),
-		message: "Your account is locked. Unlock the account via CLI, personal_unlockAccount or use Trusted Signer.".into(),
-		data: Some(Value::String(format!("{:?}", error))),
-	}
-}
+// #[cfg(any(test, feature = "accounts"))]
+// pub fn signing(error: ::accounts::SignError) -> Error {
+// 	Error {
+// 		code: ErrorCode::ServerError(codes::ACCOUNT_LOCKED),
+// 		message: "Your account is locked. Unlock the account via CLI, personal_unlockAccount or use Trusted Signer.".into(),
+// 		data: Some(Value::String(format!("{:?}", error))),
+// 	}
+// }
 
-#[cfg(any(test, feature = "accounts"))]
-pub fn password(error: ::accounts::SignError) -> Error {
-	Error {
-		code: ErrorCode::ServerError(codes::PASSWORD_INVALID),
-		message: "Account password is invalid or account does not exist.".into(),
-		data: Some(Value::String(format!("{:?}", error))),
-	}
-}
+// #[cfg(any(test, feature = "accounts"))]
+// pub fn password(error: ::accounts::SignError) -> Error {
+// 	Error {
+// 		code: ErrorCode::ServerError(codes::PASSWORD_INVALID),
+// 		message: "Account password is invalid or account does not exist.".into(),
+// 		data: Some(Value::String(format!("{:?}", error))),
+// 	}
+// }
 
-pub fn private_message(error: PrivateTransactionError) -> Error {
-	Error {
-		code: ErrorCode::ServerError(codes::PRIVATE_ERROR),
-		message: "Private transactions call failed.".into(),
-		data: Some(Value::String(format!("{:?}", error))),
-	}
-}
+// pub fn private_message(error: PrivateTransactionError) -> Error {
+// 	Error {
+// 		code: ErrorCode::ServerError(codes::PRIVATE_ERROR),
+// 		message: "Private transactions call failed.".into(),
+// 		data: Some(Value::String(format!("{:?}", error))),
+// 	}
+// }
 
 pub fn private_message_block_id_not_supported() -> Error {
 	Error {
@@ -562,34 +561,34 @@ pub fn filter_block_not_found(id: BlockId) -> Error {
 	}
 }
 
-pub fn on_demand_error(err: OnDemandError) -> Error {
-	match err {
-		OnDemandError::ChannelCanceled(e) => on_demand_cancel(e),
-		OnDemandError::RequestLimit => timeout_new_peer(&err),
-		OnDemandError::BadResponse(_) => max_attempts_reached(&err),
-	}
-}
+// pub fn on_demand_error(err: OnDemandError) -> Error {
+// 	match err {
+// 		OnDemandError::ChannelCanceled(e) => on_demand_cancel(e),
+// 		OnDemandError::RequestLimit => timeout_new_peer(&err),
+// 		OnDemandError::BadResponse(_) => max_attempts_reached(&err),
+// 	}
+// }
 
-// on-demand sender cancelled.
-pub fn on_demand_cancel(_cancel: futures::sync::oneshot::Canceled) -> Error {
-	internal("on-demand sender cancelled", "")
-}
+// // on-demand sender cancelled.
+// pub fn on_demand_cancel(_cancel: futures::sync::oneshot::Canceled) -> Error {
+// 	internal("on-demand sender cancelled", "")
+// }
 
-pub fn max_attempts_reached(err: &OnDemandError) -> Error {
-	Error {
-		code: ErrorCode::ServerError(codes::REQUEST_NOT_FOUND),
-		message: err.to_string(),
-		data: None,
-	}
-}
+// pub fn max_attempts_reached(err: &OnDemandError) -> Error {
+// 	Error {
+// 		code: ErrorCode::ServerError(codes::REQUEST_NOT_FOUND),
+// 		message: err.to_string(),
+// 		data: None,
+// 	}
+// }
 
-pub fn timeout_new_peer(err: &OnDemandError) -> Error {
-	Error {
-		code: ErrorCode::ServerError(codes::NO_LIGHT_PEERS),
-		message: err.to_string(),
-		data: None,
-	}
-}
+// pub fn timeout_new_peer(err: &OnDemandError) -> Error {
+// 	Error {
+// 		code: ErrorCode::ServerError(codes::NO_LIGHT_PEERS),
+// 		message: err.to_string(),
+// 		data: None,
+// 	}
+// }
 
 pub fn status_error(has_peers: bool) -> Error {
 	if has_peers {

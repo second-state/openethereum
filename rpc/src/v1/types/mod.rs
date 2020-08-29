@@ -25,7 +25,6 @@ mod block_number;
 mod bytes;
 mod call_request;
 mod confirmations;
-mod consensus_status;
 mod derivation;
 mod filter;
 mod histogram;
@@ -33,12 +32,10 @@ mod index;
 mod log;
 mod node_kind;
 mod private_receipt;
-mod private_log;
 mod provenance;
 mod receipt;
 mod rpc_settings;
 mod secretstore;
-mod sync;
 mod trace;
 mod trace_filter;
 mod transaction;
@@ -60,7 +57,6 @@ pub use self::confirmations::{
 	ConfirmationPayload, ConfirmationRequest, ConfirmationResponse, ConfirmationResponseWithToken,
 	TransactionModification, EIP191SignRequest, EthSignRequest, DecryptRequest, Either
 };
-pub use self::consensus_status::*;
 pub use self::derivation::{DeriveHash, DeriveHierarchical, Derive};
 pub use self::filter::{Filter, FilterChanges, TxFilter};
 pub use self::histogram::Histogram;
@@ -68,15 +64,10 @@ pub use self::index::Index;
 pub use self::log::Log;
 pub use self::node_kind::{NodeKind, Availability, Capability};
 pub use self::private_receipt::{PrivateTransactionReceipt, PrivateTransactionReceiptAndTransaction};
-pub use self::private_log::PrivateTransactionLog;
 pub use self::provenance::Origin;
 pub use self::receipt::Receipt;
 pub use self::rpc_settings::RpcSettings;
 pub use self::secretstore::EncryptedDocumentKey;
-pub use self::sync::{
-	SyncStatus, SyncInfo, Peers, PeerInfo, PeerNetworkInfo, PeerProtocolsInfo,
-	TransactionStats, ChainStatus, EthProtocolInfo, PipProtocolInfo,
-};
 pub use self::trace::{LocalizedTrace, TraceResults, TraceResultsWithTransactionHash};
 pub use self::trace_filter::TraceFilter;
 pub use self::transaction::{Transaction, RichRawTransaction, LocalTransactionStatus};

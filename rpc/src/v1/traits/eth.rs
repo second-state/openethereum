@@ -20,7 +20,7 @@ use jsonrpc_derive::rpc;
 use ethereum_types::{H64, H160, H256, U64, U256};
 
 use v1::types::{RichBlock, BlockNumber, Bytes, CallRequest, Filter, FilterChanges, Index, EthAccount};
-use v1::types::{Log, Receipt, SyncStatus, Transaction, Work};
+use v1::types::{Log, Receipt, Transaction, Work};
 
 /// Eth rpc interface.
 #[rpc(server)]
@@ -34,7 +34,7 @@ pub trait Eth {
 
 	/// Returns an object with data about the sync status or false. (wtf?)
 	#[rpc(name = "eth_syncing")]
-	fn syncing(&self) -> Result<SyncStatus>;
+	fn syncing(&self) -> Result<bool>;
 
 	/// Returns the number of hashes per second that the node is mining with.
 	#[rpc(name = "eth_hashrate")]

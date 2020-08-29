@@ -183,65 +183,65 @@ pub trait ActivityNotifier: Send + Sync + 'static {
 	fn active(&self);
 }
 
-/// Stats-counting RPC middleware
-pub struct Middleware<T: ActivityNotifier = ClientNotifier> {
-	stats: Arc<RpcStats>,
-	notifier: T,
-}
+// /// Stats-counting RPC middleware
+// pub struct Middleware<T: ActivityNotifier = ClientNotifier> {
+// 	stats: Arc<RpcStats>,
+// 	notifier: T,
+// }
 
-impl<T: ActivityNotifier> Middleware<T> {
-	/// Create new Middleware with stats counter and activity notifier.
-	pub fn new(stats: Arc<RpcStats>, notifier: T) -> Self {
-		Middleware {
-			stats,
-			notifier,
-		}
-	}
-}
+// impl<T: ActivityNotifier> Middleware<T> {
+// 	/// Create new Middleware with stats counter and activity notifier.
+// 	pub fn new(stats: Arc<RpcStats>, notifier: T) -> Self {
+// 		Middleware {
+// 			stats,
+// 			notifier,
+// 		}
+// 	}
+// }
 
-impl<M: core::Metadata, T: ActivityNotifier> core::Middleware<M> for Middleware<T> {
-	type Future = core::FutureResponse;
-	type CallFuture = core::middleware::NoopCallFuture;
+// impl<M: core::Metadata, T: ActivityNotifier> core::Middleware<M> for Middleware<T> {
+// 	type Future = core::FutureResponse;
+// 	type CallFuture = core::middleware::NoopCallFuture;
 
-	fn on_request<F, X>(&self, request: core::Request, meta: M, process: F) -> Either<Self::Future, X> where
-		F: FnOnce(core::Request, M) -> X,
-		X: core::futures::Future<Item=Option<core::Response>, Error=()> + Send + 'static,
-	{
-		let start = time::Instant::now();
+// 	fn on_request<F, X>(&self, request: core::Request, meta: M, process: F) -> Either<Self::Future, X> where
+// 		F: FnOnce(core::Request, M) -> X,
+// 		X: core::futures::Future<Item=Option<core::Response>, Error=()> + Send + 'static,
+// 	{
+// 		let start = time::Instant::now();
 
-		self.notifier.active();
-		self.stats.count_request();
+// 		self.notifier.active();
+// 		self.stats.count_request();
 
-		let id = match request {
-			core::Request::Single(core::Call::MethodCall(ref call)) => Some(call.id.clone()),
-			_ => None,
-		};
-		let stats = self.stats.clone();
+// 		let id = match request {
+// 			core::Request::Single(core::Call::MethodCall(ref call)) => Some(call.id.clone()),
+// 			_ => None,
+// 		};
+// 		let stats = self.stats.clone();
 
-		let future = process(request, meta).map(move |res| {
-			let time = start.elapsed().as_micros();
-			if time > 10_000 {
-				debug!(target: "rpc", "[{:?}] Took {}ms", id, time / 1_000);
-			}
-			stats.add_roundtrip(time);
-			res
-		});
+// 		let future = process(request, meta).map(move |res| {
+// 			let time = start.elapsed().as_micros();
+// 			if time > 10_000 {
+// 				debug!(target: "rpc", "[{:?}] Took {}ms", id, time / 1_000);
+// 			}
+// 			stats.add_roundtrip(time);
+// 			res
+// 		});
 
-		Either::A(Box::new(future))
-	}
-}
+// 		Either::A(Box::new(future))
+// 	}
+// }
 
-/// Client Notifier
-pub struct ClientNotifier {
-	/// Client
-	pub client: Arc<::ethcore::client::Client>,
-}
+// /// Client Notifier
+// pub struct ClientNotifier {
+// 	/// Client
+// 	pub client: Arc<::ethcore::client::Client>,
+// }
 
-impl ActivityNotifier for ClientNotifier {
-	fn active(&self) {
-		self.client.keep_alive()
-	}
-}
+// impl ActivityNotifier for ClientNotifier {
+// 	fn active(&self) {
+// 		self.client.keep_alive()
+// 	}
+// }
 
 #[cfg(test)]
 mod tests {

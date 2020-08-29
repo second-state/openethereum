@@ -62,24 +62,18 @@ extern crate jsonrpc_pubsub;
 
 extern crate client_traits;
 extern crate common_types as types;
-extern crate ethash;
 extern crate ethcore;
 extern crate fastmap;
 extern crate parity_bytes as bytes;
 extern crate parity_crypto as crypto;
-extern crate ethcore_light as light;
 extern crate ethcore_logger;
 extern crate ethcore_miner as miner;
 extern crate ethcore_network as network;
-extern crate ethcore_private_tx;
-extern crate ethcore_sync as sync;
 extern crate ethereum_types;
 extern crate ethkey;
 extern crate ethstore;
-extern crate fetch;
 extern crate keccak_hash as hash;
 extern crate parity_runtime;
-extern crate parity_updater as updater;
 extern crate parity_version as version;
 extern crate eip_712;
 extern crate rlp;
@@ -122,9 +116,6 @@ extern crate pretty_assertions;
 extern crate maplit;
 
 #[cfg(test)]
-extern crate fake_fetch;
-
-#[cfg(test)]
 extern crate ethcore_io as io;
 
 #[cfg(test)]
@@ -154,8 +145,7 @@ pub use http::{
 	AccessControlAllowOrigin, Host, DomainsValidation, cors::AccessControlAllowHeaders
 };
 
-pub use v1::{NetworkSettings, Metadata, Origin, informant, dispatch, signer};
-pub use v1::block_import::{is_major_importing_or_waiting};
+pub use v1::{NetworkSettings, Metadata, Origin, informant, signer};
 pub use v1::PubSubSyncStatus;
 pub use v1::extractors::{RpcExtractor, WsExtractor, WsStats, WsDispatcher};
 pub use authcodes::{AuthCodes, TimeProvider};

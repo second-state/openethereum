@@ -56,7 +56,6 @@ extern crate trie_vm_factories;
 extern crate triehash_ethereum as triehash;
 extern crate unexpected;
 extern crate using_queue;
-extern crate verification;
 extern crate vm;
 
 #[cfg(test)]
@@ -101,19 +100,15 @@ extern crate trace_time;
 extern crate evm;
 
 #[cfg(all(test, feature = "price-info"))]
-extern crate fetch;
-
-#[cfg(all(test, feature = "price-info"))]
 extern crate parity_runtime;
 
 pub mod block;
-pub mod client;
-pub mod miner;
 
 #[cfg(test)]
 mod tests;
 #[cfg(feature = "json-tests")]
 pub mod json_tests;
-#[cfg(any(test, feature = "test-helpers"))]
+// #[cfg(any(test, feature = "test-helpers"))]
+#[cfg(test)]
 pub mod test_helpers;
 pub use db::mkvs;

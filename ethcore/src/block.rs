@@ -57,7 +57,7 @@ use types::{
 use executive_state::ExecutiveState;
 use machine::ExecutedBlock;
 
-use crate::mkvs::MKVS;
+use db::mkvs::MKVS;
 
 /// Block that is ready for transactions to be added.
 ///
@@ -407,214 +407,214 @@ impl Drain for SealedBlock {
 	}
 }
 
-/// Enact the block. Takes the block header, transactions and uncles from a
-/// `PreVerified` block and Produces a new `LockedBlock` after applying all
-/// transactions and committing the state to disk.
-pub(crate) fn enact(
-	header: &Header,
-	transactions: Vec<SignedTransaction>,
-	uncles: Vec<Header>,
-	engine: &dyn Engine,
-	tracing: bool,
-	db: StateDB,
-	parent: &Header,
-	last_hashes: Arc<LastHashes>,
-	factories: Factories,
-	is_epoch_begin: bool,
-) -> Result<LockedBlock, Error> {
-	// For trace log
-	let trace_state = if log_enabled!(target: "enact", ::log::Level::Trace) {
-		Some(State::from_existing(db.boxed_clone(), parent.state_root().clone(), engine.account_start_nonce(parent.number() + 1), factories.clone())?)
-	} else {
-		None
-	};
+// /// Enact the block. Takes the block header, transactions and uncles from a
+// /// `PreVerified` block and Produces a new `LockedBlock` after applying all
+// /// transactions and committing the state to disk.
+// pub(crate) fn enact(
+// 	header: &Header,
+// 	transactions: Vec<SignedTransaction>,
+// 	uncles: Vec<Header>,
+// 	engine: &dyn Engine,
+// 	tracing: bool,
+// 	db: StateDB,
+// 	parent: &Header,
+// 	last_hashes: Arc<LastHashes>,
+// 	factories: Factories,
+// 	is_epoch_begin: bool,
+// ) -> Result<LockedBlock, Error> {
+// 	// For trace log
+// 	let trace_state = if log_enabled!(target: "enact", ::log::Level::Trace) {
+// 		Some(State::from_existing(db.boxed_clone(), parent.state_root().clone(), engine.account_start_nonce(parent.number() + 1), factories.clone())?)
+// 	} else {
+// 		None
+// 	};
 
-	let mut b = OpenBlock::new(
-		engine,
-		factories,
-		tracing,
-		db,
-		parent,
-		last_hashes,
-		// Engine such as Clique will calculate author from extra_data.
-		// this is only important for executing contracts as the 'executive_author'.
-		engine.executive_author(header)?,
-		(3141562.into(), 31415620.into()),
-		vec![],
-		is_epoch_begin,
-	)?;
+// 	let mut b = OpenBlock::new(
+// 		engine,
+// 		factories,
+// 		tracing,
+// 		db,
+// 		parent,
+// 		last_hashes,
+// 		// Engine such as Clique will calculate author from extra_data.
+// 		// this is only important for executing contracts as the 'executive_author'.
+// 		engine.executive_author(header)?,
+// 		(3141562.into(), 31415620.into()),
+// 		vec![],
+// 		is_epoch_begin,
+// 	)?;
 
-	if let Some(ref s) = trace_state {
-		let env = b.env_info();
-		let root = s.root();
-		let author_balance = s.balance(&env.author)?;
-		trace!(target: "enact", "num={}, root={}, author={}, author_balance={}\n",
-				b.block.header.number(), root, env.author, author_balance);
-	}
+// 	if let Some(ref s) = trace_state {
+// 		let env = b.env_info();
+// 		let root = s.root();
+// 		let author_balance = s.balance(&env.author)?;
+// 		trace!(target: "enact", "num={}, root={}, author={}, author_balance={}\n",
+// 				b.block.header.number(), root, env.author, author_balance);
+// 	}
 
-	b.populate_from(header);
-	b.push_transactions(transactions)?;
+// 	b.populate_from(header);
+// 	b.push_transactions(transactions)?;
 
-	for u in uncles {
-		b.push_uncle(u)?;
-	}
+// 	for u in uncles {
+// 		b.push_uncle(u)?;
+// 	}
 
-	b.close_and_lock()
-}
+// 	b.close_and_lock()
+// }
 
-#[cfg(test)]
-mod tests {
-	use test_helpers::get_temp_state_db;
-	use super::*;
-	use engine::Engine;
-	use vm::LastHashes;
-	use trie_vm_factories::Factories;
-	use state_db::StateDB;
-	use ethereum_types::Address;
-	use std::sync::Arc;
-	use types::{
-		errors::EthcoreError as Error,
-		header::Header,
-		transaction::SignedTransaction,
-		view,
-		views::BlockView,
-		verification::Unverified,
-	};
-	use hash_db::EMPTY_PREFIX;
+// #[cfg(test)]
+// mod tests {
+// 	use test_helpers::get_temp_state_db;
+// 	use super::*;
+// 	use engine::Engine;
+// 	use vm::LastHashes;
+// 	use trie_vm_factories::Factories;
+// 	use state_db::StateDB;
+// 	use ethereum_types::Address;
+// 	use std::sync::Arc;
+// 	use types::{
+// 		errors::EthcoreError as Error,
+// 		header::Header,
+// 		transaction::SignedTransaction,
+// 		view,
+// 		views::BlockView,
+// 		verification::Unverified,
+// 	};
+// 	use hash_db::EMPTY_PREFIX;
 
-	/// Enact the block given by `block_bytes` using `engine` on the database `db` with given `parent` block header
-	fn enact_bytes(
-		block_bytes: Vec<u8>,
-		engine: &dyn Engine,
-		tracing: bool,
-		db: StateDB,
-		parent: &Header,
-		last_hashes: Arc<LastHashes>,
-		factories: Factories,
-	) -> Result<LockedBlock, Error> {
+// 	/// Enact the block given by `block_bytes` using `engine` on the database `db` with given `parent` block header
+// 	fn enact_bytes(
+// 		block_bytes: Vec<u8>,
+// 		engine: &dyn Engine,
+// 		tracing: bool,
+// 		db: StateDB,
+// 		parent: &Header,
+// 		last_hashes: Arc<LastHashes>,
+// 		factories: Factories,
+// 	) -> Result<LockedBlock, Error> {
 
-		let block = Unverified::from_rlp(block_bytes)?;
-		let header = block.header;
-		let transactions: Result<Vec<_>, Error> = block
-			.transactions
-			.into_iter()
-			.map(SignedTransaction::new)
-			.map(|r| r.map_err(Into::into))
-			.collect();
-		let transactions = transactions?;
+// 		let block = Unverified::from_rlp(block_bytes)?;
+// 		let header = block.header;
+// 		let transactions: Result<Vec<_>, Error> = block
+// 			.transactions
+// 			.into_iter()
+// 			.map(SignedTransaction::new)
+// 			.map(|r| r.map_err(Into::into))
+// 			.collect();
+// 		let transactions = transactions?;
 
-		{
-			if ::log::max_level() >= ::log::Level::Trace {
-				let s = State::from_existing(db.boxed_clone(), parent.state_root().clone(), engine.account_start_nonce(parent.number() + 1), factories.clone())?;
-				trace!(target: "enact", "num={}, root={}, author={}, author_balance={}\n",
-					header.number(), s.root(), header.author(), s.balance(&header.author())?);
-			}
-		}
+// 		{
+// 			if ::log::max_level() >= ::log::Level::Trace {
+// 				let s = State::from_existing(db.boxed_clone(), parent.state_root().clone(), engine.account_start_nonce(parent.number() + 1), factories.clone())?;
+// 				trace!(target: "enact", "num={}, root={}, author={}, author_balance={}\n",
+// 					header.number(), s.root(), header.author(), s.balance(&header.author())?);
+// 			}
+// 		}
 
-		let mut b = OpenBlock::new(
-			engine,
-			factories,
-			tracing,
-			db,
-			parent,
-			last_hashes,
-			Address::zero(),
-			(3141562.into(), 31415620.into()),
-			vec![],
-			false,
-		)?;
+// 		let mut b = OpenBlock::new(
+// 			engine,
+// 			factories,
+// 			tracing,
+// 			db,
+// 			parent,
+// 			last_hashes,
+// 			Address::zero(),
+// 			(3141562.into(), 31415620.into()),
+// 			vec![],
+// 			false,
+// 		)?;
 
-		b.populate_from(&header);
-		b.push_transactions(transactions)?;
+// 		b.populate_from(&header);
+// 		b.push_transactions(transactions)?;
 
-		for u in block.uncles {
-			b.push_uncle(u)?;
-		}
+// 		for u in block.uncles {
+// 			b.push_uncle(u)?;
+// 		}
 
-		b.close_and_lock()
-	}
+// 		b.close_and_lock()
+// 	}
 
-	/// Enact the block given by `block_bytes` using `engine` on the database `db` with given `parent` block header. Seal the block afterwards
-	fn enact_and_seal(
-		block_bytes: Vec<u8>,
-		engine: &dyn Engine,
-		tracing: bool,
-		db: StateDB,
-		parent: &Header,
-		last_hashes: Arc<LastHashes>,
-		factories: Factories,
-	) -> Result<SealedBlock, Error> {
-		let header = Unverified::from_rlp(block_bytes.clone())?.header;
-		Ok(enact_bytes(block_bytes, engine, tracing, db, parent, last_hashes, factories)?
-			.seal(engine, header.seal().to_vec())?)
-	}
+// 	/// Enact the block given by `block_bytes` using `engine` on the database `db` with given `parent` block header. Seal the block afterwards
+// 	fn enact_and_seal(
+// 		block_bytes: Vec<u8>,
+// 		engine: &dyn Engine,
+// 		tracing: bool,
+// 		db: StateDB,
+// 		parent: &Header,
+// 		last_hashes: Arc<LastHashes>,
+// 		factories: Factories,
+// 	) -> Result<SealedBlock, Error> {
+// 		let header = Unverified::from_rlp(block_bytes.clone())?.header;
+// 		Ok(enact_bytes(block_bytes, engine, tracing, db, parent, last_hashes, factories)?
+// 			.seal(engine, header.seal().to_vec())?)
+// 	}
 
-	#[test]
-	fn open_block() {
-		let spec = spec::new_test();
-		let genesis_header = spec.genesis_header();
-		let db = spec.ensure_db_good(get_temp_state_db(), &Default::default()).unwrap();
-		let last_hashes = Arc::new(vec![genesis_header.hash()]);
-		let b = OpenBlock::new(&*spec.engine, Default::default(), false, db, &genesis_header, last_hashes, Address::zero(), (3141562.into(), 31415620.into()), vec![], false).unwrap();
-		let b = b.close_and_lock().unwrap();
-		let _ = b.seal(&*spec.engine, vec![]);
-	}
+// 	#[test]
+// 	fn open_block() {
+// 		let spec = spec::new_test();
+// 		let genesis_header = spec.genesis_header();
+// 		let db = spec.ensure_db_good(get_temp_state_db(), &Default::default()).unwrap();
+// 		let last_hashes = Arc::new(vec![genesis_header.hash()]);
+// 		let b = OpenBlock::new(&*spec.engine, Default::default(), false, db, &genesis_header, last_hashes, Address::zero(), (3141562.into(), 31415620.into()), vec![], false).unwrap();
+// 		let b = b.close_and_lock().unwrap();
+// 		let _ = b.seal(&*spec.engine, vec![]);
+// 	}
 
-	#[test]
-	fn enact_block() {
-		let spec = spec::new_test();
-		let engine = &*spec.engine;
-		let genesis_header = spec.genesis_header();
+// 	#[test]
+// 	fn enact_block() {
+// 		let spec = spec::new_test();
+// 		let engine = &*spec.engine;
+// 		let genesis_header = spec.genesis_header();
 
-		let db = spec.ensure_db_good(get_temp_state_db(), &Default::default()).unwrap();
-		let last_hashes = Arc::new(vec![genesis_header.hash()]);
-		let b = OpenBlock::new(engine, Default::default(), false, db, &genesis_header, last_hashes.clone(), Address::zero(), (3141562.into(), 31415620.into()), vec![], false).unwrap()
-			.close_and_lock().unwrap().seal(engine, vec![]).unwrap();
-		let orig_bytes = b.rlp_bytes();
-		let orig_db = b.drain().state.drop().1;
+// 		let db = spec.ensure_db_good(get_temp_state_db(), &Default::default()).unwrap();
+// 		let last_hashes = Arc::new(vec![genesis_header.hash()]);
+// 		let b = OpenBlock::new(engine, Default::default(), false, db, &genesis_header, last_hashes.clone(), Address::zero(), (3141562.into(), 31415620.into()), vec![], false).unwrap()
+// 			.close_and_lock().unwrap().seal(engine, vec![]).unwrap();
+// 		let orig_bytes = b.rlp_bytes();
+// 		let orig_db = b.drain().state.drop().1;
 
-		let db = spec.ensure_db_good(get_temp_state_db(), &Default::default()).unwrap();
-		let e = enact_and_seal(orig_bytes.clone(), engine, false, db, &genesis_header, last_hashes, Default::default()).unwrap();
+// 		let db = spec.ensure_db_good(get_temp_state_db(), &Default::default()).unwrap();
+// 		let e = enact_and_seal(orig_bytes.clone(), engine, false, db, &genesis_header, last_hashes, Default::default()).unwrap();
 
-		assert_eq!(e.rlp_bytes(), orig_bytes);
+// 		assert_eq!(e.rlp_bytes(), orig_bytes);
 
-		let db = e.drain().state.drop().1;
-		assert_eq!(orig_db.journal_db().keys(), db.journal_db().keys());
-		assert!(orig_db.journal_db().keys().iter().filter(|k| orig_db.journal_db().get(k.0, EMPTY_PREFIX)
-			!= db.journal_db().get(k.0, EMPTY_PREFIX)).next() == None);
-	}
+// 		let db = e.drain().state.drop().1;
+// 		assert_eq!(orig_db.journal_db().keys(), db.journal_db().keys());
+// 		assert!(orig_db.journal_db().keys().iter().filter(|k| orig_db.journal_db().get(k.0, EMPTY_PREFIX)
+// 			!= db.journal_db().get(k.0, EMPTY_PREFIX)).next() == None);
+// 	}
 
-	#[test]
-	fn enact_block_with_uncle() {
-		let spec = spec::new_test();
-		let engine = &*spec.engine;
-		let genesis_header = spec.genesis_header();
+// 	#[test]
+// 	fn enact_block_with_uncle() {
+// 		let spec = spec::new_test();
+// 		let engine = &*spec.engine;
+// 		let genesis_header = spec.genesis_header();
 
-		let db = spec.ensure_db_good(get_temp_state_db(), &Default::default()).unwrap();
-		let last_hashes = Arc::new(vec![genesis_header.hash()]);
-		let mut open_block = OpenBlock::new(engine, Default::default(), false, db, &genesis_header, last_hashes.clone(), Address::zero(), (3141562.into(), 31415620.into()), vec![], false).unwrap();
-		let mut uncle1_header = Header::new();
-		uncle1_header.set_extra_data(b"uncle1".to_vec());
-		let mut uncle2_header = Header::new();
-		uncle2_header.set_extra_data(b"uncle2".to_vec());
-		open_block.push_uncle(uncle1_header).unwrap();
-		open_block.push_uncle(uncle2_header).unwrap();
-		let b = open_block.close_and_lock().unwrap().seal(engine, vec![]).unwrap();
+// 		let db = spec.ensure_db_good(get_temp_state_db(), &Default::default()).unwrap();
+// 		let last_hashes = Arc::new(vec![genesis_header.hash()]);
+// 		let mut open_block = OpenBlock::new(engine, Default::default(), false, db, &genesis_header, last_hashes.clone(), Address::zero(), (3141562.into(), 31415620.into()), vec![], false).unwrap();
+// 		let mut uncle1_header = Header::new();
+// 		uncle1_header.set_extra_data(b"uncle1".to_vec());
+// 		let mut uncle2_header = Header::new();
+// 		uncle2_header.set_extra_data(b"uncle2".to_vec());
+// 		open_block.push_uncle(uncle1_header).unwrap();
+// 		open_block.push_uncle(uncle2_header).unwrap();
+// 		let b = open_block.close_and_lock().unwrap().seal(engine, vec![]).unwrap();
 
-		let orig_bytes = b.rlp_bytes();
-		let orig_db = b.drain().state.drop().1;
+// 		let orig_bytes = b.rlp_bytes();
+// 		let orig_db = b.drain().state.drop().1;
 
-		let db = spec.ensure_db_good(get_temp_state_db(), &Default::default()).unwrap();
-		let e = enact_and_seal(orig_bytes.clone(), engine, false, db, &genesis_header, last_hashes, Default::default()).unwrap();
+// 		let db = spec.ensure_db_good(get_temp_state_db(), &Default::default()).unwrap();
+// 		let e = enact_and_seal(orig_bytes.clone(), engine, false, db, &genesis_header, last_hashes, Default::default()).unwrap();
 
-		let bytes = e.rlp_bytes();
-		assert_eq!(bytes, orig_bytes);
-		let uncles = view!(BlockView, &bytes).uncles();
-		assert_eq!(uncles[1].extra_data(), b"uncle2");
+// 		let bytes = e.rlp_bytes();
+// 		assert_eq!(bytes, orig_bytes);
+// 		let uncles = view!(BlockView, &bytes).uncles();
+// 		assert_eq!(uncles[1].extra_data(), b"uncle2");
 
-		let db = e.drain().state.drop().1;
-		assert_eq!(orig_db.journal_db().keys(), db.journal_db().keys());
-		assert!(orig_db.journal_db().keys().iter().filter(|k| orig_db.journal_db().get(k.0, EMPTY_PREFIX)
-			!= db.journal_db().get(k.0, EMPTY_PREFIX)).next() == None);
-	}
-}
+// 		let db = e.drain().state.drop().1;
+// 		assert_eq!(orig_db.journal_db().keys(), db.journal_db().keys());
+// 		assert!(orig_db.journal_db().keys().iter().filter(|k| orig_db.journal_db().get(k.0, EMPTY_PREFIX)
+// 			!= db.journal_db().get(k.0, EMPTY_PREFIX)).next() == None);
+// 	}
+// }

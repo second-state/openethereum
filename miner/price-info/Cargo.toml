@@ -8,12 +8,10 @@ authors = ["Parity Technologies <admin@parity.io>"]
 edition = "2018"
 
 [dependencies]
-fetch = { path = "../../util/fetch" }
 futures = "0.1"
 log = "0.4"
 parity-runtime = "0.1.1"
 serde_json = "1.0"
 
 [dev-dependencies]
-fake-fetch = { path = "../../util/fake-fetch" }
 parity-runtime = { version = "0.1.1", features = ["test-helpers"] }
