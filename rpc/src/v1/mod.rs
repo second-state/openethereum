@@ -31,7 +31,6 @@ macro_rules! try_bf {
 
 #[macro_use]
 pub mod helpers;
-mod impls;
 pub mod types;
 #[cfg(test)]
 mod tests;
@@ -44,13 +43,10 @@ pub mod traits;
 
 pub use self::{
     extractors::{RpcExtractor, WsDispatcher, WsExtractor, WsStats},
-    helpers::{block_import, dispatch, NetworkSettings},
-    impls::*,
+    helpers::NetworkSettings,
     metadata::Metadata,
     traits::{
-        Debug, Eth, EthFilter, EthPubSub, EthSigning, Net, Parity, ParityAccounts,
-        ParityAccountsInfo, ParitySet, ParitySetAccounts, ParitySigning, Personal, PubSub,
-        SecretStore, Signer, Traces, Web3,
+        Debug, Eth, EthFilter, EthPubSub, EthSigning, Net, PubSub, Traces, Web3,
     },
     types::Origin,
 };

@@ -25,7 +25,9 @@ use ethcore::{
 use jsonrpc_core::{Error, ErrorCode, Result as RpcResult, Value};
 use rlp::DecoderError;
 use types::{blockchain_info::BlockChainInfo, transaction::Error as TransactionError};
-use v1::{impls::EthClientOptions, types::BlockNumber};
+use v1::types::BlockNumber;
+use v1::impls::EthClientOptions;
+// use v1::impls::EthClientOptions;
 use vm::Error as VMError;
 
 pub mod codes {
@@ -227,51 +229,51 @@ pub fn unavailable_block(no_ancient_block: bool, by_hash: bool) -> Error {
     }
 }
 
-pub fn check_block_number_existence<'a, T, C>(
-    client: &'a C,
-    num: BlockNumber,
-    options: EthClientOptions,
-) -> impl Fn(Option<T>) -> RpcResult<Option<T>> + 'a
-where
-    C: BlockChainClient,
-{
-    move |response| {
-        if response.is_none() {
-            if let BlockNumber::Num(block_number) = num {
-                // tried to fetch block number and got nothing even though the block number is
-                // less than the latest block number
-                if block_number < client.chain_info().best_block_number
-                    && !options.allow_missing_blocks
-                {
-                    return Err(unavailable_block(options.no_ancient_blocks, false));
-                }
-            }
-        }
-        Ok(response)
-    }
-}
+// pub fn check_block_number_existence<'a, T, C>(
+//     client: &'a C,
+//     num: BlockNumber,
+//     options: EthClientOptions,
+// ) -> impl Fn(Option<T>) -> RpcResult<Option<T>> + 'a
+// where
+//     C: BlockChainClient,
+// {
+//     move |response| {
+//         if response.is_none() {
+//             if let BlockNumber::Num(block_number) = num {
+//                 // tried to fetch block number and got nothing even though the block number is
+//                 // less than the latest block number
+//                 if block_number < client.chain_info().best_block_number
+//                     && !options.allow_missing_blocks
+//                 {
+//                     return Err(unavailable_block(options.no_ancient_blocks, false));
+//                 }
+//             }
+//         }
+//         Ok(response)
+//     }
+// }
 
-pub fn check_block_gap<'a, T, C>(
-    client: &'a C,
-    options: EthClientOptions,
-) -> impl Fn(Option<T>) -> RpcResult<Option<T>> + 'a
-where
-    C: BlockChainClient,
-{
-    move |response| {
-        if response.is_none() && !options.allow_missing_blocks {
-            let BlockChainInfo {
-                ancient_block_hash, ..
-            } = client.chain_info();
-            // block information was requested, but unfortunately we couldn't find it and there
-            // are gaps in the database ethcore/src/blockchain/blockchain.rs
-            if ancient_block_hash.is_some() {
-                return Err(unavailable_block(options.no_ancient_blocks, true));
-            }
-        }
-        Ok(response)
-    }
-}
+// pub fn check_block_gap<'a, T, C>(
+//     client: &'a C,
+//     options: EthClientOptions,
+// ) -> impl Fn(Option<T>) -> RpcResult<Option<T>> + 'a
+// where
+//     C: BlockChainClient,
+// {
+//     move |response| {
+//         if response.is_none() && !options.allow_missing_blocks {
+//             let BlockChainInfo {
+//                 ancient_block_hash, ..
+//             } = client.chain_info();
+//             // block information was requested, but unfortunately we couldn't find it and there
+//             // are gaps in the database ethcore/src/blockchain/blockchain.rs
+//             if ancient_block_hash.is_some() {
+//                 return Err(unavailable_block(options.no_ancient_blocks, true));
+//             }
+//         }
+//         Ok(response)
+//     }
+// }
 
 pub fn not_enough_data() -> Error {
     Error {
@@ -337,32 +339,32 @@ pub fn fetch<T: fmt::Debug>(error: T) -> Error {
     }
 }
 
-#[cfg(any(test, feature = "accounts"))]
-pub fn invalid_call_data<T: fmt::Display>(error: T) -> Error {
-    Error {
-        code: ErrorCode::ServerError(codes::ENCODING_ERROR),
-        message: format!("{}", error),
-        data: None,
-    }
-}
+// #[cfg(any(test, feature = "accounts"))]
+// pub fn invalid_call_data<T: fmt::Display>(error: T) -> Error {
+//     Error {
+//         code: ErrorCode::ServerError(codes::ENCODING_ERROR),
+//         message: format!("{}", error),
+//         data: None,
+//     }
+// }
 
-#[cfg(any(test, feature = "accounts"))]
-pub fn signing(error: ::accounts::SignError) -> Error {
-    Error {
-		code: ErrorCode::ServerError(codes::ACCOUNT_LOCKED),
-		message: "Your account is locked. Unlock the account via CLI, personal_unlockAccount or use Trusted Signer.".into(),
-		data: Some(Value::String(format!("{:?}", error))),
-	}
-}
+// #[cfg(any(test, feature = "accounts"))]
+// pub fn signing(error: ::accounts::SignError) -> Error {
+//     Error {
+// 		code: ErrorCode::ServerError(codes::ACCOUNT_LOCKED),
+// 		message: "Your account is locked. Unlock the account via CLI, personal_unlockAccount or use Trusted Signer.".into(),
+// 		data: Some(Value::String(format!("{:?}", error))),
+// 	}
+// }
 
-#[cfg(any(test, feature = "accounts"))]
-pub fn password(error: ::accounts::SignError) -> Error {
-    Error {
-        code: ErrorCode::ServerError(codes::PASSWORD_INVALID),
-        message: "Account password is invalid or account does not exist.".into(),
-        data: Some(Value::String(format!("{:?}", error))),
-    }
-}
+// #[cfg(any(test, feature = "accounts"))]
+// pub fn password(error: ::accounts::SignError) -> Error {
+//     Error {
+//         code: ErrorCode::ServerError(codes::PASSWORD_INVALID),
+//         message: "Account password is invalid or account does not exist.".into(),
+//         data: Some(Value::String(format!("{:?}", error))),
+//     }
+// }
 
 pub fn transaction_message(error: &TransactionError) -> String {
     use self::TransactionError::*;

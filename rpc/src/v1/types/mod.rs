@@ -69,10 +69,6 @@ pub use self::{
     receipt::Receipt,
     rpc_settings::RpcSettings,
     secretstore::EncryptedDocumentKey,
-    sync::{
-        ChainStatus, EthProtocolInfo, PeerInfo, PeerNetworkInfo, PeerProtocolsInfo, Peers,
-        SyncInfo, SyncStatus, TransactionStats,
-    },
     trace::{LocalizedTrace, TraceResults, TraceResultsWithTransactionHash},
     trace_filter::TraceFilter,
     transaction::{LocalTransactionStatus, RichRawTransaction, Transaction},

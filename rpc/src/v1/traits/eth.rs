@@ -21,7 +21,7 @@ use jsonrpc_derive::rpc;
 
 use v1::types::{
     BlockNumber, Bytes, CallRequest, EthAccount, Filter, FilterChanges, Index, Log, Receipt,
-    RichBlock, SyncStatus, Transaction, Work,
+    RichBlock, Transaction, Work,
 };
 
 /// Eth rpc interface.
@@ -36,7 +36,7 @@ pub trait Eth {
 
     /// Returns an object with data about the sync status or false. (wtf?)
     #[rpc(name = "eth_syncing")]
-    fn syncing(&self) -> Result<SyncStatus>;
+    fn syncing(&self) -> Result<bool>;
 
     /// Returns the number of hashes per second that the node is mining with.
     #[rpc(name = "eth_hashrate")]

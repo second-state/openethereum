@@ -46,11 +46,9 @@ ethcore-logger = { path = "parity/logger" }
 ethcore-miner = { path = "miner" }
 ethcore-network = { path = "util/network" }
 ethcore-service = { path = "ethcore/service" }
-ethcore-sync = { path = "ethcore/sync" }
 ethereum-types = "0.4"
 ethkey = { path = "accounts/ethkey" }
 ethstore = { path = "accounts/ethstore" }
-fetch = { path = "util/fetch" }
 node-filter = { path = "ethcore/node-filter" }
 rlp = { version = "0.3.0", features = ["ethereum"] }
 cli-signer= { path = "cli-signer" }
@@ -81,7 +79,6 @@ rustc_version = "0.2"
 pretty_assertions = "0.1"
 ipnetwork = "0.12.6"
 tempdir = "0.3"
-fake-fetch = { path = "util/fake-fetch" }
 lazy_static = "1.2.0"
 
 [target.'cfg(windows)'.dependencies]

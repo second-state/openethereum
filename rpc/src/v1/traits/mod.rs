@@ -21,14 +21,7 @@ pub mod eth;
 pub mod eth_pubsub;
 pub mod eth_signing;
 pub mod net;
-pub mod parity;
-pub mod parity_accounts;
-pub mod parity_set;
-pub mod parity_signing;
-pub mod personal;
 pub mod pubsub;
-pub mod secretstore;
-pub mod signer;
 pub mod traces;
 pub mod web3;
 
@@ -38,14 +31,7 @@ pub use self::{
     eth_pubsub::EthPubSub,
     eth_signing::EthSigning,
     net::Net,
-    parity::Parity,
-    parity_accounts::{ParityAccounts, ParityAccountsInfo},
-    parity_set::{ParitySet, ParitySetAccounts},
-    parity_signing::ParitySigning,
-    personal::Personal,
     pubsub::PubSub,
-    secretstore::SecretStore,
-    signer::Signer,
     traces::Traces,
     web3::Web3,
 };

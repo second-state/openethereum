@@ -21,10 +21,8 @@
 
 /// Export the denominations module.
 pub mod denominations;
-/// Export the ethash module.
-pub mod ethash;
 
-pub use self::{denominations::*, ethash::Ethash};
+pub use self::denominations::*;
 
 use super::spec::*;
 use machine::EthereumMachine;

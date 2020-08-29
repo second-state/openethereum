@@ -17,9 +17,7 @@
 #[macro_use]
 pub mod errors;
 
-pub mod block_import;
 pub mod deprecated;
-pub mod dispatch;
 #[cfg(any(test, feature = "accounts"))]
 pub mod eip191;
 #[cfg(any(test, feature = "accounts"))]
@@ -34,13 +32,10 @@ mod network_settings;
 mod poll_filter;
 mod poll_manager;
 mod requests;
-mod signature;
 mod subscribers;
 mod subscription_manager;
-mod work;
 
 pub use self::{
-    dispatch::{Dispatcher, FullDispatcher},
     network_settings::NetworkSettings,
     poll_filter::{limit_logs, PollFilter, SyncPollFilter},
     poll_manager::PollManager,
@@ -48,10 +43,8 @@ pub use self::{
         CallRequest, ConfirmationPayload, ConfirmationRequest, FilledTransactionRequest,
         TransactionRequest,
     },
-    signature::verify_signature,
     subscribers::Subscribers,
     subscription_manager::GenericPollManager,
-    work::submit_work_detail,
 };
 
 pub fn to_url(address: &Option<::Host>) -> Option<String> {

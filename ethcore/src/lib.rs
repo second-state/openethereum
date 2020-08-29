@@ -22,7 +22,6 @@ extern crate ansi_term;
 extern crate common_types as types;
 extern crate crossbeam_utils;
 extern crate ethabi;
-extern crate ethash;
 extern crate ethcore_blockchain as blockchain;
 extern crate ethcore_builtin as builtin;
 extern crate ethcore_call_contract as call_contract;
@@ -109,20 +108,15 @@ extern crate serde_derive;
 extern crate evm;
 
 #[cfg(all(test, feature = "price-info"))]
-extern crate fetch;
-
-#[cfg(all(test, feature = "price-info"))]
 extern crate parity_runtime;
 
 pub mod block;
-pub mod client;
 pub mod engines;
 pub mod error;
 pub mod ethereum;
 pub mod executed;
 pub mod executive;
 pub mod machine;
-pub mod miner;
 pub mod pod_account;
 pub mod pod_state;
 pub mod snapshot;
@@ -131,7 +125,6 @@ pub mod state;
 pub mod state_db;
 pub mod trace;
 pub mod transaction_ext;
-pub mod verification;
 
 mod account_db;
 mod externalities;
@@ -140,7 +133,8 @@ mod tx_filter;
 
 #[cfg(feature = "json-tests")]
 pub mod json_tests;
-#[cfg(any(test, feature = "test-helpers"))]
+// #[cfg(any(test, feature = "test-helpers"))]
+#[cfg(test)]
 pub mod test_helpers;
 #[cfg(test)]
 mod tests;
