@@ -4,6 +4,9 @@
 *.rlib
 *.dll
 
+!libssvm-evmc.so
+!fib.wasm
+
 # Executables
 *.exe
 

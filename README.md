@@ -20,6 +20,7 @@ Fast and feature-rich multi-network Ethereum client.
 1. [Description](#chapter-001)
 2. [Technical Overview](#chapter-002)
 3. [Building](#chapter-003)<br>
+  3.1 [Add libssvm-evmc.so to root](#chapter-0030)<br>
   3.1 [Building Dependencies](#chapter-0031)<br>
   3.2 [Building from Source Code](#chapter-0032)<br>
   3.3 [Starting OpenEthereum](#chapter-0034)
@@ -51,6 +52,12 @@ If you run into problems while using OpenEthereum, check out the [old wiki for d
 You can download OpenEthereum's latest release at [the releases page](https://github.com/openethereum/openethereum/releases) or follow the instructions below to build from source. Read the [CHANGELOG.md](CHANGELOG.md) for a list of all changes between different versions.
 
 ## 3. Building <a id="chapter-003"></a>
+
+### 3.0 Add libssvm-evmc.so to root  <a id="chapter-0030"></a>
+```
+$ cp ./ssvm/libssvm-evmc.so /
+$ chmod 777 /libssvm-evmc.so
+```
 
 ### 3.1 Build Dependencies <a id="chapter-0031"></a>
 

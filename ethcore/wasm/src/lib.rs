@@ -24,6 +24,7 @@ extern crate parity_wasm;
 extern crate vm;
 extern crate pwasm_utils as wasm_utils;
 extern crate wasmi;
+extern crate evmc_client;
 
 #[cfg(test)]
 extern crate env_logger;
@@ -43,6 +44,9 @@ use wasmi::{Error as InterpreterError, Trap};
 use runtime::{Runtime, RuntimeContext};
 
 use ethereum_types::U256;
+
+use std::collections::BTreeMap;
+use evmc_client::{host::HostContext as HostInterface, load, EvmcVm, EvmcLoaderErrorCode, types::*};
 
 /// Wrapped interpreter error
 #[derive(Debug)]
@@ -95,8 +99,166 @@ enum ExecutionOutcome {
 	NotSpecial,
 }
 
+struct HostContext {
+    storage: BTreeMap<Bytes32, Bytes32>,
+}
+
+impl HostContext {
+    fn new() -> HostContext {
+        HostContext {
+            storage: BTreeMap::new(),
+        }
+    }
+}
+
+impl HostInterface for HostContext {
+	fn account_exists(&mut self, _addr: &Address) -> bool {
+		println!("Host: account_exists");
+		return true;
+	}
+	fn get_storage(&mut self, _addr: &Address, key: &Bytes32) -> Bytes32 {
+		println!("Host: get_storage");
+		let value = self.storage.get(key);
+		let ret: Bytes32;
+		match value {
+			Some(value) => ret = value.to_owned(),
+			None => ret = [0u8; BYTES32_LENGTH],
+		}
+		println!("{:?} -> {:?}", hex::encode(key), hex::encode(ret));
+		return ret;
+	}
+	fn set_storage(&mut self, _addr: &Address, key: &Bytes32, value: &Bytes32) -> StorageStatus {
+		println!("Host: set_storage");
+		println!("{:?} -> {:?}", hex::encode(key), hex::encode(value));
+		self.storage.insert(key.to_owned(), value.to_owned());
+		return StorageStatus::EVMC_STORAGE_MODIFIED;
+	}
+	fn get_balance(&mut self, _addr: &Address) -> Bytes32 {
+		println!("Host: get_balance");
+		return [0u8; BYTES32_LENGTH];
+	}
+	fn get_code_size(&mut self, _addr: &Address) -> usize {
+		println!("Host: get_code_size");
+		return 0;
+	}
+	fn get_code_hash(&mut self, _addr: &Address) -> Bytes32 {
+		println!("Host: get_code_hash");
+		return [0u8; BYTES32_LENGTH];
+	}
+	fn copy_code(
+		&mut self,
+		_addr: &Address,
+		_offset: &usize,
+		_buffer_data: &*mut u8,
+		_buffer_size: &usize,
+	) -> usize {
+		println!("Host: copy_code");
+		return 0;
+	}
+	fn selfdestruct(&mut self, _addr: &Address, _beneficiary: &Address) {
+		println!("Host: selfdestruct");
+	}
+	fn get_tx_context(&mut self) -> (Bytes32, Address, Address, i64, i64, i64, Bytes32) {
+		println!("Host: get_tx_context");
+		return (
+			[0u8; BYTES32_LENGTH],
+			[0u8; ADDRESS_LENGTH],
+			[0u8; ADDRESS_LENGTH],
+			0,
+			0,
+			0,
+			[0u8; BYTES32_LENGTH],
+		);
+	}
+	fn get_block_hash(&mut self, _number: i64) -> Bytes32 {
+		println!("Host: get_block_hash");
+		return [0u8; BYTES32_LENGTH];
+	}
+	fn emit_log(&mut self, _addr: &Address, _topics: &Vec<Bytes32>, _data: &[u8]) {
+		println!("Host: emit_log");
+	}
+	fn call(
+		&mut self,
+		_kind: CallKind,
+		_destination: &Address,
+		_sender: &Address,
+		_value: &Bytes32,
+		_input: &[u8],
+		_gas: i64,
+		_depth: i32,
+		_is_static: bool,
+	) -> (Vec<u8>, i64, Address, StatusCode) {
+		println!("Host: call");
+		return (
+			vec![0u8; BYTES32_LENGTH],
+			_gas,
+			[0u8; ADDRESS_LENGTH],
+			StatusCode::EVMC_SUCCESS,
+		);
+	}
+}
+
+impl Drop for HostContext {
+    fn drop(&mut self) {
+        println!("Dump storage:");
+        for (key, value) in &self.storage {
+            println!("{:?} -> {:?}", hex::encode(key), hex::encode(value));
+        }
+    }
+}
+
+fn exec(args: &Vec<u8>) -> (Vec<u8>, i64) {
+    let lib_path = "/libssvm-evmc.so";
+	let (vm, result) = load(lib_path);
+    let code = args;
+	println!("result {:?}", result);
+    println!("Instantiate: {:?}", (vm.get_name(), vm.get_version()));
+
+    let host_context = HostContext::new();
+    let (output, gas_left, status_code) = vm.execute(
+        Box::new(host_context),
+        Revision::EVMC_BYZANTIUM,
+        CallKind::EVMC_CALL,
+        false,
+        123,
+        50000000,
+        &[32u8; 20],
+        &[128u8; 20],
+        &[0u8; 0],
+        &[0u8; 32],
+        &code[..],
+        &[0u8; 32],
+    );
+    println!("Output:  {:?}", hex::encode(output));
+    println!("GasLeft: {:?}", gas_left);
+    println!("Status:  {:?}", status_code);
+    vm.destroy();
+
+    (output.to_vec(), gas_left)
+}
+
 impl WasmInterpreter {
 	pub fn run(self: Box<WasmInterpreter>, ext: &mut dyn vm::Ext) -> vm::Result<GasLeft> {
+		let code: &Vec<u8>;
+		match self.params.code.as_ref() {
+			Some(v) => {
+				let (result, gas_left) = exec(v);
+				let len = result.len();
+				Ok(GasLeft::NeedsReturn {
+					gas_left: ethereum_types::U256::from(gas_left),
+					data: ReturnData::new(
+						result,
+						0,
+						len,
+					),
+					apply_state: true,
+				})
+			},
+			None => Ok(GasLeft::Known(U256::zero()))
+		}
+		
+		// original code
+		/*
 		let (module, data) = parser::payload(&self.params, ext.schedule().wasm())?;
 
 		let loaded_module = wasmi::Module::from_parity_wasm_module(module).map_err(Error::Interpreter)?;
@@ -192,6 +354,7 @@ impl WasmInterpreter {
 				apply_state: true,
 			})
 		}
+		*/
 	}
 }
 
