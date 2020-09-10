@@ -44,6 +44,7 @@ use wasmi::{Error as InterpreterError, Trap};
 use runtime::{Runtime, RuntimeContext};
 
 use ethereum_types::U256;
+use ethereum_types::H160;
 
 use std::collections::BTreeMap;
 use evmc_client::{host::HostContext as HostInterface, load, EvmcVm, EvmcLoaderErrorCode, types::*};
@@ -207,12 +208,14 @@ impl Drop for HostContext {
     }
 }
 
-fn exec(args: &Vec<u8>) -> (Vec<u8>, i64) {
+fn exec(code: &Vec<u8>, input: &Vec<u8>, depth: i32, gas: U256, value: U256, destination: H160, sender: H160) -> (Vec<u8>, i64) {
     let lib_path = "/libssvm-evmc.so";
 	let (vm, result) = load(lib_path);
-    let code = args;
 	println!("result {:?}", result);
-    println!("Instantiate: {:?}", (vm.get_name(), vm.get_version()));
+	println!("Instantiate: {:?}", (vm.get_name(), vm.get_version()));
+	
+	let mut value_arr = [0u8; 32];
+	value.to_little_endian(&mut value_arr);
 
     let host_context = HostContext::new();
     let (output, gas_left, status_code) = vm.execute(
@@ -220,12 +223,12 @@ fn exec(args: &Vec<u8>) -> (Vec<u8>, i64) {
         Revision::EVMC_BYZANTIUM,
         CallKind::EVMC_CALL,
         false,
-        123,
-        50000000,
-        &[32u8; 20],
-        &[128u8; 20],
-        &[0u8; 0],
-        &[0u8; 32],
+        depth,
+        gas.as_u64() as i64,
+        destination.as_fixed_bytes(),
+        sender.as_fixed_bytes(),
+        &input[..],
+        &value_arr,
         &code[..],
         &[0u8; 32],
     );
@@ -239,10 +242,19 @@ fn exec(args: &Vec<u8>) -> (Vec<u8>, i64) {
 
 impl WasmInterpreter {
 	pub fn run(self: Box<WasmInterpreter>, ext: &mut dyn vm::Ext) -> vm::Result<GasLeft> {
-		let code: &Vec<u8>;
 		match self.params.code.as_ref() {
-			Some(v) => {
-				let (result, gas_left) = exec(v);
+			Some(code_ref) => {
+				let input = vec![0u8; 0];
+				let input_ref: &Vec<u8>;
+				match self.params.data.as_ref() {
+					Some(data) => {
+						input_ref = data;
+					},
+					None => {
+						input_ref = &input;
+					}
+				}
+				let (result, gas_left) = exec(code_ref, input_ref, ext.depth() as i32, self.params.gas, self.params.value.value(), self.params.origin, self.params.sender);
 				let len = result.len();
 				Ok(GasLeft::NeedsReturn {
 					gas_left: ethereum_types::U256::from(gas_left),
