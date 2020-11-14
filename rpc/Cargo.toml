@@ -40,7 +40,7 @@ ethcore-miner = { path = "../miner" }
 ethcore-network = { path = "../util/network" }
 ethereum-types = "0.4"
 parity-bytes = "0.1"
-parity-crypto = "0.3.0"
+parity-crypto = "0.6.2"
 
 eip-712 = { path = "../util/EIP-712" }
 ethjson = { path = "../json" }
