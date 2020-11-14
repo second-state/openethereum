@@ -16,12 +16,8 @@
 
 //! Consensus engine specification and basic implementations.
 
-mod authority_round;
-mod basic_authority;
-mod clique;
 mod instant_seal;
 mod null_engine;
-mod validator_set;
 
 pub mod block_reward;
 pub mod signer;
